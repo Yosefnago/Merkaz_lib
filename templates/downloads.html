@@ -4,31 +4,89 @@
     <meta charset="UTF-8">
     <title>Downloads</title>
     <style>
-        body { font-family: sans-serif; margin: 40px; }
-        ul { list-style: none; padding: 0; }
-        li { margin: 10px 0; font-size: 18px; }
+        body { font-family: sans-serif; margin: 20px 40px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f2f2f2; }
+        tr.clickable-row:hover { background-color: #f5f5f5; cursor: pointer; }
+        .download-btn {
+            padding: 5px 10px;
+            background-color: #007BFF;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .download-btn:hover { background-color: #0056b3; }
         a { text-decoration: none; color: #007BFF; }
         a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <h1>Available Files and Folders</h1>
-    <ul>
-        {% for item in items %}
-            <li>
-                {% if item.is_folder %}
-                    <span>📁</span>
-                    <a href="/download/folder/{{ item.name }}">{{ item.name }}/</a>
-                {% else %}
-                    <span>📄</span>
-                    <a href="/download/file/{{ item.name }}">{{ item.name }}</a>
-                {% endif %}
-            </li>
-        {% else %}
-            <li>No files or folders found in the share directory.</li>
-        {% endfor %}
-    </ul>
+    <h1>Downloads</h1>
+    <p>Current Path: /{{ current_path }}</p>
+    {% if current_path %}
+        <p><a href="{{ url_for('downloads', subpath=current_path.rsplit('/', 1)[0] if '/' in current_path else None) }}">⬆️ Go Up</a></p>
+    {% endif %}
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+                <tr class="clickable-row" 
+                    data-is-folder="{{ 'true' if item.is_folder else 'false' }}" 
+                    data-path="{{ item.path }}">
+                    <td>
+                        {% if item.is_folder %}
+                            <span>📁 {{ item.name }}/</span>
+                        {% else %}
+                            <span>📄 {{ item.name }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.is_folder %}
+                            <a href="/download/folder/{{ item.path }}" class="download-btn">Download</a>
+                        {% else %}
+                            <a href="/download/file/{{ item.path }}" class="download-btn">Download</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td colspan="2">This folder is empty.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     <br>
     <a href="/logout">Logout</a>
+
+    <script>
+        document.querySelectorAll('.clickable-row').forEach(row => {
+            row.addEventListener('dblclick', function(event) {
+                // Prevent the click from triggering if the target was the download button itself
+                if (event.target.classList.contains('download-btn')) {
+                    return;
+                }
+
+                const isFolder = this.dataset.isFolder === 'true';
+                const path = this.dataset.path;
+
+                if (isFolder) {
+                    // If it's a folder, navigate to the browse URL
+                    window.location.href = `/browse/${path}`;
+                } else {
+                    // If it's a file, navigate to the download URL
+                    window.location.href = `/download/file/${path}`;
+                }
+            });
+        });
+    </script>
+
 </body>
 </html>

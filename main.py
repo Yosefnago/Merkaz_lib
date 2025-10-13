@@ -1,11 +1,11 @@
 import os
 import csv
-import shutil # Used for creating zip archives
+import shutil
 import zipfile
-from io import BytesIO # Used to create the zip in memory
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, send_file
+from io import BytesIO
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, send_file, abort
 
-# --- (Configuration and App Initialization remain the same) ---
+# --- (Configuration and App Initialization are the same) ---
 SHARE_FOLDER = "files_to_share"
 NEW_USER_DATABASE = "new_users.csv"
 AUTH_USER_DATABASE = "authorized_users.csv"
@@ -13,7 +13,6 @@ AUTH_USER_DATABASE = "authorized_users.csv"
 app = Flask(__name__)
 app.secret_key = "a_super_random_secret_key"
 share_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), SHARE_FOLDER)
-
 
 # --- (Registration, Login, and Logout routes remain the same) ---
 @app.route("/register", methods=["GET", "POST"])
@@ -48,60 +47,57 @@ def logout():
     session.clear()
     return redirect(url_for("login"))
 
-
-# --- (Updated Downloads and New Folder Download Routes) ---
-
-@app.route("/")
-def downloads():
+# --- NEW: Dynamic Route for Browsing Files and Subfolders ---
+@app.route('/')
+@app.route('/browse/<path:subpath>')
+def downloads(subpath=''):
     if not session.get("logged_in"):
         return redirect(url_for("login"))
-    
+
+    # Security check: prevent directory traversal attacks
+    current_path = os.path.join(share_dir, subpath)
+    if not os.path.exists(current_path) or not current_path.startswith(share_dir):
+        return abort(404, "Path not found")
+
     items = []
     try:
-        # List all items in the share directory
-        for item_name in os.listdir(share_dir):
-            item_path = os.path.join(share_dir, item_name)
-            # Check if it's a directory or a file
+        for item_name in os.listdir(current_path):
+            item_path = os.path.join(current_path, item_name)
             is_folder = os.path.isdir(item_path)
-            items.append({"name": item_name, "is_folder": is_folder})
+            items.append({"name": item_name, "is_folder": is_folder, "path": os.path.join(subpath, item_name)})
     except FileNotFoundError:
-        pass # If the share folder doesn't exist, items will be empty
-        
-    return render_template("downloads.html", items=items)
+        pass
 
-# Route for downloading individual files
-@app.route("/download/file/<filename>")
-def download_file(filename):
+    return render_template("downloads.html", items=items, current_path=subpath)
+
+# --- UPDATED: Download routes to handle subpaths ---
+@app.route("/download/file/<path:file_path>")
+def download_file(file_path):
     if not session.get("logged_in"):
         return redirect(url_for("login"))
-    return send_from_directory(share_dir, filename, as_attachment=True)
+    # Security check is implicitly handled by send_from_directory
+    directory = os.path.dirname(file_path)
+    filename = os.path.basename(file_path)
+    return send_from_directory(os.path.join(share_dir, directory), filename, as_attachment=True)
 
-# NEW ROUTE for downloading folders as zip files
-@app.route("/download/folder/<path:folder_name>")
-def download_folder(folder_name):
+@app.route("/download/folder/<path:folder_path>")
+def download_folder(folder_path):
     if not session.get("logged_in"):
         return redirect(url_for("login"))
 
-    folder_path = os.path.join(share_dir, folder_name)
+    absolute_folder_path = os.path.join(share_dir, folder_path)
+    if not os.path.isdir(absolute_folder_path) or not absolute_folder_path.startswith(share_dir):
+        return abort(404, "Folder not found")
 
-    # Security check: ensure the path is within the share directory
-    if not os.path.isdir(folder_path) or not folder_path.startswith(share_dir):
-        return "Folder not found", 404
-
-    # Create a zip file in memory
     memory_file = BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for root, dirs, files in os.walk(folder_path):
+        for root, dirs, files in os.walk(absolute_folder_path):
             for file in files:
                 file_path = os.path.join(root, file)
-                # Add file to zip, creating a relative path inside the zip
-                zf.write(file_path, os.path.relpath(file_path, share_dir))
-
-    memory_file.seek(0)
+                zf.write(file_path, os.path.relpath(file_path, os.path.dirname(absolute_folder_path)))
     
-    return send_file(memory_file,
-                     download_name=f'{folder_name}.zip',
-                     as_attachment=True)
+    memory_file.seek(0)
+    return send_file(memory_file, download_name=f'{os.path.basename(folder_path)}.zip', as_attachment=True)
 
 # --- (Startup logic remains the same) ---
 def create_csv(filename):

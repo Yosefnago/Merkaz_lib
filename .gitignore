@@ -1,2 +1,4 @@
 /.venv
 /files_to_share
+config.py
+/__pycache__

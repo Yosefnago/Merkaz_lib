@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Downloads</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; }
+        ul { list-style: none; padding: 0; }
+        li { margin: 10px 0; font-size: 18px; }
+        a { text-decoration: none; color: #007BFF; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Available Files</h1>
+    <ul>
+        {% for file in files %}
+            <li><a href="/download/{{ file }}">{{ file }}</a></li>
+        {% else %}
+            <li>No files found in the share folder.</li>
+        {% endfor %}
+    </ul>
+    <br>
+    <a href="/logout">Logout</a>
+</body>
+</html>

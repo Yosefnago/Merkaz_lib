@@ -12,12 +12,20 @@
     </style>
 </head>
 <body>
-    <h1>Available Files</h1>
+    <h1>Available Files and Folders</h1>
     <ul>
-        {% for file in files %}
-            <li><a href="/download/{{ file }}">{{ file }}</a></li>
+        {% for item in items %}
+            <li>
+                {% if item.is_folder %}
+                    <span>📁</span>
+                    <a href="/download/folder/{{ item.name }}">{{ item.name }}/</a>
+                {% else %}
+                    <span>📄</span>
+                    <a href="/download/file/{{ item.name }}">{{ item.name }}</a>
+                {% endif %}
+            </li>
         {% else %}
-            <li>No files found in the share folder.</li>
+            <li>No files or folders found in the share directory.</li>
         {% endfor %}
     </ul>
     <br>

@@ -4,7 +4,6 @@ An open library for file-sharing among students.
 ## Installation
 To get started with Merkaz_lib, you'll need to have Python installed on your system. You can then clone the repository and install the necessary dependencies.
 
-**Note on `requirements.txt`:** The `requirements.txt` file is currently unreadable due to a character encoding issue. We are working to resolve this. In the meantime, you may need to manually install the required libraries.
 
 ## Virtual Environment Setup
 It is highly recommended to use a virtual environment to manage the project's dependencies. Here's how to set one up:
@@ -44,6 +43,7 @@ pip freeze > requirements.txt
 
 ## Ngrok Setup
 To expose the local server to the internet, you can use ngrok.
+visit the website https://dashboard.ngrok.com/get-started/setup/windows and follow the steps, options for MacOs and linux appear above
 
 ### Example
 ```bash

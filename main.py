@@ -19,10 +19,11 @@ except ImportError:
 
 # --- Configuration ---
 SHARE_FOLDER = config.SHARE_FOLDER
+TRASH_FOLDER = config.TRASH_FOLDER
 
 NEW_USER_DATABASE = config.NEW_USER_DATABASE
 AUTH_USER_DATABASE = config.AUTH_USER_DATABASE
-DENIED_USER_DATABASE = config.DENIED_USER_DATABASE # New Denied DB
+DENIED_USER_DATABASE = config.DENIED_USER_DATABASE
 SESSION_LOG_FILE = config.SESSION_LOG_FILE
 DOWNLOAD_LOG_FILE = config.DOWNLOAD_LOG_FILE
 SUGGESTION_LOG_FILE = config.SUGGESTION_LOG_FILE
@@ -31,6 +32,8 @@ app = Flask(__name__, static_folder='assets')
 app.secret_key = config.SUPER_SECRET_KEY
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=15)
 share_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), SHARE_FOLDER)
+trash_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), TRASH_FOLDER)
+
 
 # --- Logging Helper Function ---
 def log_event(filename, data):
@@ -104,7 +107,7 @@ def admin_metrics():
     if not session.get("is_admin"): abort(403)
     log_files = [
         {"type": "session", "name": "Session Log (Login/Logout)", "description": "Track user login and failure events."},
-        {"type": "download", "name": "Download Log (File/Folder)", "description": "Track all file and folder downloads."},
+        {"type": "download", "name": "Download Log (File/Folder/Delete)", "description": "Track all file, folder, and delete events."},
         {"type": "suggestion", "name": "Suggestion Log (User Feedback)", "description": "Records all user suggestions."},
     ]
     return render_template("admin_metrics.html", log_files=log_files)
@@ -152,12 +155,10 @@ def deny_user(email):
     user_to_deny = next((user for user in pending_users if user.email == email), None)
     
     if user_to_deny:
-        # Add to denied users
         denied_users = User.get_denied()
         denied_users.append(user_to_deny)
         User.save_denied(denied_users)
         
-        # Remove from pending users
         remaining_pending = [user for user in pending_users if user.email != email]
         User.save_pending(remaining_pending)
         flash(f"Registration for {email} has been denied.", "success")
@@ -172,12 +173,10 @@ def re_pend_user(email):
     user_to_re_pend = next((user for user in denied_users if user.email == email), None)
 
     if user_to_re_pend:
-        # Add back to pending users
         pending_users = User.get_pending()
         pending_users.append(user_to_re_pend)
         User.save_pending(pending_users)
         
-        # Remove from denied users
         remaining_denied = [user for user in denied_users if user.email != email]
         User.save_denied(remaining_denied)
         flash(f"User {email} has been moved back to pending.", "success")
@@ -222,6 +221,38 @@ def download_metrics_xlsx(log_type):
         return abort(500)
 
 # --- Standard User Routes ---
+@app.route("/delete/<path:item_path>", methods=["POST"])
+def delete_item(item_path):
+    if not session.get("is_admin"): abort(403)
+    
+    source_path = os.path.join(share_dir, item_path)
+    
+    if not os.path.exists(source_path) or not source_path.startswith(share_dir):
+        flash("File or folder not found.", "error")
+        return redirect(request.referrer or url_for('downloads'))
+
+    # Create a unique name for the item in the trash
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = os.path.basename(item_path)
+    dest_name = f"{timestamp}_{base_name}"
+    dest_path = os.path.join(trash_dir, dest_name)
+
+    try:
+        shutil.move(source_path, dest_path)
+        flash(f"Successfully moved '{base_name}' to trash.", "success")
+        
+        # Log the delete event
+        log_event(DOWNLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email", "unknown"), "DELETE", item_path])
+
+    except Exception as e:
+        flash(f"Error deleting item: {e}", "error")
+
+    # Redirect back to the folder the user was viewing
+    parent_folder = os.path.dirname(item_path)
+    if parent_folder:
+        return redirect(url_for('downloads', subpath=parent_folder))
+    return redirect(url_for('downloads'))
+
 @app.route("/download/file/<path:file_path>")
 def download_file(file_path):
     if not session.get("logged_in"): return redirect(url_for("login"))
@@ -330,6 +361,8 @@ def downloads(subpath=''):
                            is_admin=session.get('is_admin', False))
 
 def create_file_with_header(filename, header):
+    # Ensure parent directory exists
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     if not os.path.exists(filename):
         with open(filename, mode='w', newline='', encoding='utf-8') as f:
             csv.writer(f).writerow(header)
@@ -337,10 +370,11 @@ def create_file_with_header(filename, header):
 
 if __name__ == "__main__":
     if not os.path.exists(share_dir): os.makedirs(share_dir)
+    if not os.path.exists(trash_dir): os.makedirs(trash_dir) # Create trash dir
     
     create_file_with_header(AUTH_USER_DATABASE, ["email", "password", "role"])
     create_file_with_header(NEW_USER_DATABASE, ["email", "password", "role"])
-    create_file_with_header(DENIED_USER_DATABASE, ["email", "password", "role"]) # Create denied DB
+    create_file_with_header(DENIED_USER_DATABASE, ["email", "password", "role"])
     
     create_file_with_header(SESSION_LOG_FILE, ["timestamp", "email", "event"])
     create_file_with_header(DOWNLOAD_LOG_FILE, ["timestamp", "email", "type", "path"])

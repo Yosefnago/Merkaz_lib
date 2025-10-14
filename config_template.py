@@ -1,5 +1,6 @@
 # --- File Paths ---
 SHARE_FOLDER = "files_to_share"
+TRASH_FOLDER = "trash" # Directory for deleted f
 
 # --- User Databases ---
 AUTH_USER_DATABASE = "data/auth_users.csv"

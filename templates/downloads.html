@@ -32,88 +32,115 @@
             padding-bottom: 15px;
             margin-bottom: 15px;
         }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
         h1 a {
             font-size: 24px;
             font-weight: 500;
             text-decoration: none;
             color: #202124;
         }
-        .header-nav {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .nav-btn {
+        .logout-btn { /* Unified button style */
+            background-color: #e8eaed;
+            color: #3c4043;
             padding: 8px 16px;
             border-radius: 4px;
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
-            transition: background-color 0.2s;
-        }
-        .logout-btn {
-            background-color: #e8eaed;
-            color: #3c4043;
         }
         .logout-btn:hover {
             background-color: #d2d5d9;
         }
-        .admin-btn {
+        .admin-dashboard-btn {
             background-color: #1a73e8;
             color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
         }
-        .admin-btn:hover {
+        .admin-dashboard-btn:hover {
             background-color: #185abc;
         }
         .path-bar { color: #5f6368; font-size: 14px; margin-bottom: 20px; }
         .path-bar a { color: #1a73e8; text-decoration: none; }
         .path-bar a:hover { text-decoration: underline; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; vertical-align: middle;}
         th { color: #5f6368; font-weight: 500; }
-        tr.clickable-row:hover { background-color: #f1f3f4; cursor: pointer; }
-        .item-name { display: flex; align-items: center; }
+        tr:hover { background-color: #f1f3f4; }
+        .item-name { display: flex; align-items: center; cursor: pointer; }
         .item-name svg { margin-right: 12px; width: 20px; height: 20px; fill: #5f6368; }
-        .download-btn { padding: 6px 12px; background-color: transparent; color: #1a73e8; text-decoration: none; border-radius: 4px; border: 1px solid #ddd; font-size: 13px; font-weight: 500; display: inline-block; }
-        .download-btn:hover { background-color: #f0f6ff; border-color: #cce0ff; }
+        .action-cell { display: flex; gap: 8px; }
+        .action-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            display: inline-block;
+            border: 1px solid #ccc;
+        }
+        .download-btn { background-color: #e8f0fe; color: #1967d2; }
+        .download-btn:hover { background-color: #d2e3fc; }
+        .delete-btn { background-color: #fce8e6; color: #c5221f; cursor: pointer; }
+        .delete-btn:hover { background-color: #f9d8d6; }
         .suggestion-box { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; }
         .suggestion-box h2 { font-size: 18px; font-weight: 500; margin-bottom: 15px; }
-        .suggestion-box textarea { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical; }
+        .suggestion-box textarea { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .suggestion-box button { margin-top: 10px; padding: 10px 20px; background-color: #1a73e8; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; }
         .suggestion-box button:hover { background-color: #185abc; }
-        .success-msg, .error-msg { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
-        .success-msg { color: #1e8e3e; background-color: #e6f4ea; }
-        .error-msg { color: #d93025; background-color: #fce8e6; }
+        .flash-messages { list-style: none; padding: 0; margin-bottom: 15px; }
+        .flash-messages li { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .flash-success { color: #1e8e3e; background-color: #e6f4ea; }
+        .flash-error { color: #d93025; background-color: #fce8e6; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1><a href="{{ url_for('downloads') }}">Public Files</a></h1>
-            <div class="header-nav">
+            <div class="header-right">
                 {% if is_admin %}
-                    <a href="{{ url_for('admin_metrics') }}" class="nav-btn admin-btn">Admin Dashboard</a>
+                    <a href="{{ url_for('admin_metrics') }}" class="admin-dashboard-btn">Admin Dashboard</a>
                 {% endif %}
-                <a href="/logout" class="nav-btn logout-btn">Logout</a>
+                <a href="/logout" class="logout-btn">Logout</a>
             </div>
         </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flash-messages">
+                {% for category, message in messages %}
+                    <li class="flash-{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
+
         <div class="path-bar">
             <span>/{{ current_path }}</span>
             {% if current_path %}
-                <a href="{{ url_for('downloads', subpath=current_path.rsplit('/', 1)[0] if '/' in current_path else None) }}" style="margin-left: 15px;">&#11014; Go Up</a>
+                <a href="{{ url_for('downloads', subpath=back_path) }}" style="margin-left: 15px;">⬆️ Go Up</a>
             {% endif %}
         </div>
+        
         <table>
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th style="width: 120px; text-align: center;">Action</th>
+                    <th style="width: 200px; text-align:center;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
-                    <tr class="clickable-row" data-is-folder="{{ 'true' if item.is_folder else 'false' }}" data-path="{{ item.path }}">
-                        <td>
+                    <tr>
+                        <td onclick="navigate(this, '{{ item.is_folder }}', '{{ item.path }}')">
                             <div class="item-name">
                                 {% if item.is_folder %}
                                     <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"></path></svg>
@@ -125,46 +152,70 @@
                             </div>
                         </td>
                         <td style="text-align: center;">
-                            {% if item.is_folder %}
-                                <a href="/download/folder/{{ item.path }}" class="download-btn">Download</a>
-                            {% else %}
-                                <a href="/download/file/{{ item.path }}" class="download-btn">Download</a>
-                            {% endif %}
+                            <div class="action-cell">
+                                <a href="{{ url_for('download_folder' if item.is_folder else 'download_file', folder_path=item.path if item.is_folder else None, file_path=item.path if not item.is_folder else None) }}" class="action-btn download-btn">Download</a>
+                                {% if is_admin %}
+                                    <form action="{{ url_for('delete_item', item_path=item.path) }}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this item?');">
+                                        <button type="submit" class="action-btn delete-btn">Delete</button>
+                                    </form>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                 {% else %}
-                    <tr><td colspan="2" style="text-align: center; color: #5f6368; padding: 30px;">This folder is empty.</td></tr>
+                    <tr>
+                        <td colspan="2" style="text-align: center; color: #5f6368; padding: 30px;">This folder is empty.</td>
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
+
         <div class="suggestion-box">
-            <h2>Have a Suggestion?</h2>
-            {% if suggestion_success %}<p class="success-msg">{{ suggestion_success }}</p>{% endif %}
-            {% if suggestion_error %}<p class="error-msg">{{ suggestion_error }}</p>{% endif %}
+            <h2>Have a Suggestion? (Cooldown: Level {{ cooldown_level }})</h2>
+            {% if suggestion_success %}
+                <p class="flash-success">{{ suggestion_success }}</p>
+            {% endif %}
+            {% if suggestion_error %}
+                <p class="flash-error">{{ suggestion_error }}</p>
+            {% endif %}
             <form action="{{ url_for('suggest') }}" method="post">
-                <textarea name="suggestion" rows="4" placeholder="Type your suggestion here... (Cooldown: Level {{ cooldown_level }})" required></textarea><br>
+                <textarea name="suggestion" rows="4" placeholder="Type your suggestion here..." required></textarea>
+                <br>
                 <button type="submit">Submit Suggestion</button>
             </form>
         </div>
     </div>
+
     <script>
-        document.querySelectorAll('.clickable-row').forEach(row => {
-            row.addEventListener('click', function(event) {
-                if (event.target.closest('.download-btn')) return;
-                const isFolder = this.dataset.isFolder === 'true';
-                const path = this.dataset.path;
-                if (isFolder) {
-                    window.location.href = `/browse/${path}`;
-                }
-            });
-            row.addEventListener('dblclick', function(event) {
-                if (event.target.closest('.download-btn')) return;
-                const isFolder = this.dataset.isFolder === 'true';
-                const path = this.dataset.path;
-                if (!isFolder) {
-                    window.location.href = `/download/file/${path}`;
-                }
-            });
+        function navigate(cell, isFolderStr, path) {
+            const isFolder = isFolderStr === 'True';
+            if (isFolder) {
+                window.location.href = `/browse/${path}`;
+            } else {
+                // Double click on file downloads it
+                window.location.href = `/download/file/${path}`;
+            }
+        }
+
+        // Add dblclick event listener to rows for navigation
+        document.querySelectorAll('tbody tr').forEach(row => {
+            const nameCell = row.querySelector('td:first-child');
+            if(nameCell){
+                const isFolder = nameCell.parentElement.querySelector('td:first-child').getAttribute('onclick').includes("'True'");
+                const path = nameCell.parentElement.querySelector('td:first-child').getAttribute('onclick').split(', ')[2].slice(1, -2);
+                
+                row.addEventListener('dblclick', function(event) {
+                    // Prevent navigation if click is on an action button
+                    if (event.target.closest('.action-cell')) {
+                        return;
+                    }
+                    if (isFolder) {
+                        window.location.href = `/browse/${path}`;
+                    } else {
+                        window.location.href = `/download/file/${path}`;
+                    }
+                });
+            }
         });
     </script>
 </body>

@@ -50,6 +50,7 @@ if __name__ == "__main__":
     create_file_with_header(config.AUTH_USER_DATABASE, ["email", "password", "role", "status"])
     create_file_with_header(config.NEW_USER_DATABASE, ["email", "password", "role"])
     create_file_with_header(config.DENIED_USER_DATABASE, ["email", "password", "role"])
+    create_file_with_header(config.PASSWORD_RESET_DATABASE, ["email", "token", "timestamp"])
     create_file_with_header(config.SESSION_LOG_FILE, ["timestamp", "email", "event"])
     create_file_with_header(config.DOWNLOAD_LOG_FILE, ["timestamp", "email", "type", "path"])
     create_file_with_header(config.SUGGESTION_LOG_FILE, ["timestamp", "email", "suggestion"])

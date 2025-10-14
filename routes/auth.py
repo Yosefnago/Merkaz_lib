@@ -1,12 +1,13 @@
 import re
 import csv
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, session, current_app
-
+from flask import Blueprint, render_template, request, redirect, url_for, session, current_app, flash
+from werkzeug.security import generate_password_hash
 import config
 from user import User
 from utils import log_event
-from mailer import send_new_user_notification
+from mailer import send_new_user_notification, send_password_reset_email
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadTimeSignature
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -80,8 +81,9 @@ def register():
             error = "Password must contain a special character."
         if error: return render_template("register.html", error=error, email=email_value)
 
+        hashed_password = generate_password_hash(password)
         with open(config.NEW_USER_DATABASE, mode='a', newline='', encoding='utf-8') as f:
-            csv.writer(f).writerow([email, password, 'user'])
+            csv.writer(f).writerow([email, hashed_password, 'user'])
         
         send_new_user_notification(current_app._get_current_object(), email)
         session['login_message'] = "Registration successful! Your account is now pending administrator approval."
@@ -93,3 +95,49 @@ def logout():
     log_event(config.SESSION_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email", "unknown"), "LOGOUT"])
     session.clear()
     return redirect(url_for("auth.login"))
+
+@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form["email"]
+        user = User.find_by_email(email)
+        if user:
+            s = URLSafeTimedSerializer(config.TOKEN_SECRET_KEY)
+            token = s.dumps(email, salt='password-reset-salt')
+            send_password_reset_email(current_app._get_current_object(), email, token)
+            flash("A password reset link has been sent to your email.", "success")
+        else:
+            flash("Email address not found.", "error")
+        return redirect(url_for("auth.forgot_password"))
+    return render_template("forgot_password.html")
+
+
+@auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    s = URLSafeTimedSerializer(config.TOKEN_SECRET_KEY)
+    try:
+        email = s.loads(token, salt='password-reset-salt', max_age=3600)  # 1 hour expiration
+    except (SignatureExpired, BadTimeSignature):
+        flash("The password reset link is invalid or has expired.", "error")
+        return redirect(url_for("auth.forgot_password"))
+
+    if request.method == "POST":
+        password = request.form["password"]
+        # Add password validation logic here (same as registration)
+        users = User.get_all()
+        user_found = False
+        for user in users:
+            if user.email == email:
+                user.password = generate_password_hash(password)
+                user_found = True
+                break
+        
+        if user_found:
+            User.save_all(users)
+            flash("Your password has been updated successfully.", "success")
+            return redirect(url_for("auth.login"))
+        else:
+            flash("An error occurred. Please try again.", "error")
+
+    return render_template("reset_password.html", token=token)
+

@@ -1,11 +1,12 @@
 import csv
 import config
+from werkzeug.security import check_password_hash
 
 # --- User Class ---
 class User:
     def __init__(self, email, password, role='user', status='active'):
         self.email = email
-        self.password = password
+        self.password = password  # This will now be a hashed password
         self.role = role
         self.status = status
 
@@ -18,7 +19,8 @@ class User:
         return self.status == 'active'
 
     def check_password(self, password_to_check):
-        return self.password == password_to_check
+        """Checks the provided password against the stored hash."""
+        return check_password_hash(self.password, password_to_check)
 
     # --- Methods for Authenticated Users (auth_users.csv) ---
     @staticmethod

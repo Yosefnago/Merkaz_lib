@@ -1,4 +1,5 @@
 from flask_mail import Mail, Message
+from flask import url_for
 import config
 from user import User
 
@@ -53,3 +54,19 @@ def send_denial_email(app, user_email):
             print(f"Denial email sent to {user_email}")
         except Exception as e:
             print(f"Error sending denial email: {e}")
+
+def send_password_reset_email(app, user_email, token):
+    """Sends a password reset email to the user."""
+    with app.app_context():
+        reset_url = url_for('auth.reset_password', token=token, _external=True)
+        msg = Message(
+            'Password Reset Request',
+            sender=config.MAIL_DEFAULT_SENDER,
+            recipients=[user_email]
+        )
+        msg.body = f"Click the following link to reset your password: {reset_url}"
+        try:
+            mail.send(msg)
+            print(f"Password reset email sent to {user_email}")
+        except Exception as e:
+            print(f"Error sending password reset email: {e}")

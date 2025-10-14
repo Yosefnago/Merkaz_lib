@@ -1,6 +1,7 @@
 import os
 import csv
 import shutil
+import magic
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, abort
 
@@ -8,6 +9,26 @@ import config
 from utils import log_event
 
 uploads_bp = Blueprint('uploads', __name__)
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in config.ALLOWED_EXTENSIONS
+
+def is_file_malicious(file_stream):
+    """
+    Checks the magic number of a file to determine if it's potentially malicious.
+    """
+    file_signature = file_stream.read(2048)  # Read the first 2048 bytes
+    file_stream.seek(0)  # Reset stream position
+    
+    file_type = magic.from_buffer(file_signature, mime=True)
+
+    # Add more sophisticated checks here if needed
+    if "executable" in file_type:
+        return True
+    
+    return False
+
 
 @uploads_bp.route("/upload", defaults={'subpath': ''}, methods=["GET", "POST"])
 @uploads_bp.route("/upload/<path:subpath>", methods=["GET", "POST"])
@@ -28,6 +49,13 @@ def upload_file(subpath):
         
         for file in uploaded_files:
             if file:
+                if not allowed_file(file.filename):
+                    flash(f"File type not allowed for {file.filename}", "error")
+                    continue
+
+                if is_file_malicious(file.stream):
+                    flash(f"Malicious file detected: {file.filename}", "error")
+                    continue
                 # filename from the browser can include the relative path for folder uploads
                 filename = file.filename
                 
@@ -195,4 +223,3 @@ def decline_upload(filename):
         flash(f"An error occurred while declining the item: {e}", "error")
 
     return redirect(url_for("uploads.admin_uploads"))
-

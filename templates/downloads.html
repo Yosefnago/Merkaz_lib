@@ -104,12 +104,12 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1><a href="{{ url_for('downloads') }}">Public Files</a></h1>
+            <h1><a href="{{ url_for('files.downloads') }}">Public Files</a></h1>
             <div class="header-right">
-                <a href="{{ url_for('my_uploads') }}" class="my-uploads-btn">My Uploads</a>
-                <a href="{{ url_for('upload_file', subpath=current_path) }}" class="upload-btn">Upload File</a>
+                <a href="{{ url_for('uploads.my_uploads') }}" class="my-uploads-btn">My Uploads</a>
+                <a href="{{ url_for('uploads.upload_file', subpath=current_path) }}" class="upload-btn">Upload File</a>
                 {% if is_admin %}
-                    <a href="{{ url_for('admin_metrics') }}" class="admin-dashboard-btn">Admin Dashboard</a>
+                    <a href="{{ url_for('admin.admin_metrics') }}" class="admin-dashboard-btn">Admin Dashboard</a>
                 {% endif %}
                 <a href="/logout" class="logout-btn">Logout</a>
             </div>
@@ -128,7 +128,7 @@
         <div class="path-bar">
             <span>/{{ current_path }}</span>
             {% if current_path %}
-                <a href="{{ url_for('downloads', subpath=back_path) }}" style="margin-left: 15px;">⬆️ Go Up</a>
+                <a href="{{ url_for('files.downloads', subpath=back_path) }}" style="margin-left: 15px;">⬆️ Go Up</a>
             {% endif %}
         </div>
         
@@ -155,9 +155,9 @@
                         </td>
                         <td style="text-align: center;">
                             <div class="action-cell">
-                                <a href="{{ url_for('download_folder' if item.is_folder else 'download_file', folder_path=item.path if item.is_folder else None, file_path=item.path if not item.is_folder else None) }}" class="action-btn download-btn">Download</a>
+                                <a href="{{ url_for('files.download_folder' if item.is_folder else 'files.download_file', folder_path=item.path if item.is_folder else None, file_path=item.path if not item.is_folder else None) }}" class="action-btn download-btn">Download</a>
                                 {% if is_admin %}
-                                    <form action="{{ url_for('delete_item', item_path=item.path) }}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this item?');">
+                                    <form action="{{ url_for('files.delete_item', item_path=item.path) }}" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this item?');">
                                         <button type="submit" class="action-btn delete-btn">Delete</button>
                                     </form>
                                 {% endif %}
@@ -180,7 +180,7 @@
             {% if suggestion_error %}
                 <p class="flash-error">{{ suggestion_error }}</p>
             {% endif %}
-            <form action="{{ url_for('suggest') }}" method="post">
+            <form action="{{ url_for('files.suggest') }}" method="post">
                 <textarea name="suggestion" rows="4" placeholder="Type your suggestion here..." required></textarea>
                 <br>
                 <button type="submit">Submit Suggestion</button>

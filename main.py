@@ -22,6 +22,7 @@ SHARE_FOLDER = config.SHARE_FOLDER
 
 NEW_USER_DATABASE = config.NEW_USER_DATABASE
 AUTH_USER_DATABASE = config.AUTH_USER_DATABASE
+DENIED_USER_DATABASE = config.DENIED_USER_DATABASE # New Denied DB
 SESSION_LOG_FILE = config.SESSION_LOG_FILE
 DOWNLOAD_LOG_FILE = config.DOWNLOAD_LOG_FILE
 SUGGESTION_LOG_FILE = config.SUGGESTION_LOG_FILE
@@ -88,9 +89,10 @@ def login():
         if login_success:
             return redirect(url_for("downloads"))
         else:
-            # Check if user is pending approval
             if User.find_pending_by_email(email):
                  error = "Your account is pending administrator approval."
+            elif User.find_denied_by_email(email):
+                 error = "Your registration has been denied."
             else:
                  error = "Invalid credentials. Please try again or register."
 
@@ -99,9 +101,7 @@ def login():
 # --- Admin Routes ---
 @app.route("/admin/metrics")
 def admin_metrics():
-    if not session.get("is_admin"):
-        abort(403) # Use 403 Forbidden for non-admins
-        
+    if not session.get("is_admin"): abort(403)
     log_files = [
         {"type": "session", "name": "Session Log (Login/Logout)", "description": "Track user login and failure events."},
         {"type": "download", "name": "Download Log (File/Folder)", "description": "Track all file and folder downloads."},
@@ -111,76 +111,87 @@ def admin_metrics():
 
 @app.route("/admin/users")
 def admin_users():
-    if not session.get("is_admin"):
-        abort(403)
-    
+    if not session.get("is_admin"): abort(403)
     all_users = User.get_all()
     return render_template("admin_users.html", users=all_users, current_user_email=session.get('email'))
 
 @app.route("/admin/pending")
 def admin_pending():
-    if not session.get("is_admin"):
-        abort(403)
-    
+    if not session.get("is_admin"): abort(403)
     pending_users = User.get_pending()
     return render_template("admin_pending.html", users=pending_users)
 
+@app.route("/admin/denied")
+def admin_denied():
+    if not session.get("is_admin"): abort(403)
+    denied_users = User.get_denied()
+    return render_template("admin_denied.html", users=denied_users)
+
 @app.route("/admin/approve/<string:email>", methods=["POST"])
 def approve_user(email):
-    if not session.get("is_admin"):
-        abort(403)
-    
+    if not session.get("is_admin"): abort(403)
     pending_users = User.get_pending()
-    user_to_approve = None
-    for user in pending_users:
-        if user.email == email:
-            user_to_approve = user
-            break
+    user_to_approve = next((user for user in pending_users if user.email == email), None)
     
     if user_to_approve:
-        # Add to authenticated users
         auth_users = User.get_all()
         auth_users.append(user_to_approve)
         User.save_all(auth_users)
         
-        # Remove from pending users
         remaining_pending = [user for user in pending_users if user.email != email]
         User.save_pending(remaining_pending)
-        
         flash(f"User {email} has been approved.", "success")
     else:
         flash(f"Could not find pending user {email}.", "error")
-        
     return redirect(url_for('admin_pending'))
 
 @app.route("/admin/deny/<string:email>", methods=["POST"])
 def deny_user(email):
-    if not session.get("is_admin"):
-        abort(403)
-    
+    if not session.get("is_admin"): abort(403)
     pending_users = User.get_pending()
+    user_to_deny = next((user for user in pending_users if user.email == email), None)
     
-    # Remove from pending users
-    remaining_pending = [user for user in pending_users if user.email != email]
-    
-    if len(remaining_pending) < len(pending_users):
+    if user_to_deny:
+        # Add to denied users
+        denied_users = User.get_denied()
+        denied_users.append(user_to_deny)
+        User.save_denied(denied_users)
+        
+        # Remove from pending users
+        remaining_pending = [user for user in pending_users if user.email != email]
         User.save_pending(remaining_pending)
         flash(f"Registration for {email} has been denied.", "success")
     else:
         flash(f"Could not find pending user {email}.", "error")
-
     return redirect(url_for('admin_pending'))
+    
+@app.route("/admin/re_pend/<string:email>", methods=["POST"])
+def re_pend_user(email):
+    if not session.get("is_admin"): abort(403)
+    denied_users = User.get_denied()
+    user_to_re_pend = next((user for user in denied_users if user.email == email), None)
+
+    if user_to_re_pend:
+        # Add back to pending users
+        pending_users = User.get_pending()
+        pending_users.append(user_to_re_pend)
+        User.save_pending(pending_users)
+        
+        # Remove from denied users
+        remaining_denied = [user for user in denied_users if user.email != email]
+        User.save_denied(remaining_denied)
+        flash(f"User {email} has been moved back to pending.", "success")
+    else:
+        flash(f"Could not find denied user {email}.", "error")
+    return redirect(url_for('admin_denied'))
 
 
 @app.route("/admin/toggle_role/<string:email>", methods=["POST"])
 def toggle_role(email):
-    if not session.get("is_admin"):
-        abort(403)
-    
+    if not session.get("is_admin"): abort(403)
     if email == session.get('email'):
         flash("For security, you cannot change your own admin status.", "error")
         return redirect(url_for('admin_users'))
-
     users = User.get_all()
     user_found = False
     for user in users:
@@ -188,34 +199,27 @@ def toggle_role(email):
             user.role = 'user' if user.is_admin else 'admin'
             user_found = True
             break
-    
     if user_found:
         User.save_all(users)
         flash(f"Successfully updated role for {email}.", "success")
     else:
         flash(f"Could not find user {email}.", "error")
-
     return redirect(url_for('admin_users'))
 
 @app.route("/metrics/download/<log_type>")
 def download_metrics_xlsx(log_type):
-    if not session.get("is_admin"):
-        abort(403)
-
+    if not session.get("is_admin"): abort(403)
     log_map = {"session": (SESSION_LOG_FILE, "Session_Log"), "download": (DOWNLOAD_LOG_FILE, "Download_Log"), "suggestion": (SUGGESTION_LOG_FILE, "Suggestion_Log")}
-    if log_type not in log_map:
-        return abort(404, "Invalid log type")
-
+    if log_type not in log_map: return abort(404)
     csv_filepath, file_prefix = log_map[log_type]
     try:
         xlsx_data = csv_to_xlsx_in_memory(csv_filepath)
         download_name = f"{file_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
         return send_file(xlsx_data, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', download_name=download_name, as_attachment=True)
-    except FileNotFoundError:
-        return abort(404, f"Metrics file {csv_filepath} not found.")
+    except FileNotFoundError: return abort(404)
     except Exception as e:
-        print(f"Error during XLSX conversion for {csv_filepath}: {e}")
-        return abort(500, "Error converting file to Excel format. Check server logs for details.")
+        print(f"Error during XLSX conversion: {e}")
+        return abort(500)
 
 # --- Standard User Routes ---
 @app.route("/download/file/<path:file_path>")
@@ -272,12 +276,8 @@ def suggest():
     return redirect(url_for("downloads"))
 
 def email_exists(email):
-    """Checks if an email exists in auth or pending users."""
-    if User.find_by_email(email):
-        return True
-    if User.find_pending_by_email(email):
-        return True
-    return False
+    """Checks if an email exists in auth, pending, or denied users."""
+    return User.find_by_email(email) or User.find_pending_by_email(email) or User.find_denied_by_email(email)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -288,22 +288,17 @@ def register():
         password = request.form["password"]
         email_value = email
         if email_exists(email):
-            error = "This email is already registered or pending approval."
+            error = "This email is already registered, pending approval, or has been denied."
             return render_template("register.html", error=error, email=email_value)
         if len(password) < 8: error = "Password must be at least 8 characters long."
         elif not re.search("[a-z]", password): error = "Password must contain a lowercase letter."
         elif not re.search("[A-Z]", password): error = "Password must contain an uppercase letter."
         elif not re.search("[0-9]", password): error = "Password must contain a number."
         elif not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", password): error = "Password must contain a special character."
-        if error:
-            return render_template("register.html", error=error, email=email_value)
+        if error: return render_template("register.html", error=error, email=email_value)
         
-        # Add to the new user database ONLY
         with open(NEW_USER_DATABASE, mode='a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            # Role is not written here, as it's assigned on approval.
-            # We will store it with a default 'user' role for consistency.
-            writer.writerow([email, password, 'user'])
+            csv.writer(f).writerow([email, password, 'user'])
             
         session['login_message'] = "Registration successful! Your account is now pending administrator approval."
         return redirect(url_for("login"))
@@ -345,6 +340,7 @@ if __name__ == "__main__":
     
     create_file_with_header(AUTH_USER_DATABASE, ["email", "password", "role"])
     create_file_with_header(NEW_USER_DATABASE, ["email", "password", "role"])
+    create_file_with_header(DENIED_USER_DATABASE, ["email", "password", "role"]) # Create denied DB
     
     create_file_with_header(SESSION_LOG_FILE, ["timestamp", "email", "event"])
     create_file_with_header(DOWNLOAD_LOG_FILE, ["timestamp", "email", "type", "path"])

@@ -19,11 +19,7 @@ class User:
     @staticmethod
     def find_by_email(email):
         """Finds a user by email in the authentication database."""
-        users = User.get_all()
-        for user in users:
-            if user.email == email:
-                return user
-        return None
+        return next((user for user in User.get_all() if user.email == email), None)
 
     @staticmethod
     def get_all():
@@ -39,11 +35,7 @@ class User:
     @staticmethod
     def find_pending_by_email(email):
         """Finds a user by email in the pending database."""
-        pending_users = User.get_pending()
-        for user in pending_users:
-            if user.email == email:
-                return user
-        return None
+        return next((user for user in User.get_pending() if user.email == email), None)
 
     @staticmethod
     def get_pending():
@@ -55,6 +47,22 @@ class User:
         """Rewrites the entire pending user database."""
         User._save_users_to_file(config.NEW_USER_DATABASE, users)
 
+    # --- Methods for Denied Users (denied_users.csv) ---
+    @staticmethod
+    def find_denied_by_email(email):
+        """Finds a user by email in the denied database."""
+        return next((user for user in User.get_denied() if user.email == email), None)
+
+    @staticmethod
+    def get_denied():
+        """Reads all users from the denied registration database."""
+        return User._read_users_from_file(config.DENIED_USER_DATABASE)
+
+    @staticmethod
+    def save_denied(users):
+        """Rewrites the entire denied user database."""
+        User._save_users_to_file(config.DENIED_USER_DATABASE, users)
+
     # --- Private Helper Methods ---
     @staticmethod
     def _read_users_from_file(filepath):
@@ -63,7 +71,7 @@ class User:
         try:
             with open(filepath, mode='r', newline='', encoding='utf-8') as f:
                 reader = csv.reader(f)
-                header = next(reader, None) # Skip header
+                next(reader, None) # Skip header
                 for row in reader:
                     if row and len(row) >= 3:
                         users.append(User(email=row[0], password=row[1], role=row[2]))

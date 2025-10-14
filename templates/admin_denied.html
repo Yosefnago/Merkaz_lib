@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TobeKK - Admin Metrics</title>
+    <title>TobeKK - Denied Users</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
@@ -70,37 +70,25 @@
         .nav-tab:not(.active):hover {
             background-color: #f1f3f4;
         }
-        .log-item {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .log-details h2 {
-            margin: 0 0 8px 0;
-            font-size: 18px;
-            font-weight: 500;
-        }
-        .log-details p {
-            margin: 0;
-            color: #5f6368;
-            font-size: 14px;
-        }
-        .download-btn {
-            background-color: #1a73e8;
-            color: white;
-            padding: 10px 20px;
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; vertical-align: middle;}
+        th { color: #5f6368; font-weight: 500; }
+        .action-btn {
+            padding: 6px 12px;
             border-radius: 4px;
-            text-decoration: none;
-            font-size: 14px;
+            border: 1px solid #ccc;
+            font-size: 13px;
             font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            background-color: #e8eaed;
+            color: #3c4043;
         }
-        .download-btn:hover {
-            background-color: #185abc;
-        }
+        .action-btn:hover { background-color: #d2d5d9; }
+        .flash-messages { list-style: none; padding: 0; margin-bottom: 15px; }
+        .flash-messages li { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .flash-success { color: #1e8e3e; background-color: #e6f4ea; }
+        .flash-error { color: #d93025; background-color: #fce8e6; }
     </style>
 </head>
 <body>
@@ -111,23 +99,44 @@
         </div>
 
         <div class="admin-nav">
-            <a href="{{ url_for('admin_metrics') }}" class="nav-tab active">Metrics</a>
+            <a href="{{ url_for('admin_metrics') }}" class="nav-tab">Metrics</a>
             <a href="{{ url_for('admin_users') }}" class="nav-tab">Users</a>
             <a href="{{ url_for('admin_pending') }}" class="nav-tab">Pending</a>
-            <a href="{{ url_for('admin_denied') }}" class="nav-tab">Denied</a>
+            <a href="{{ url_for('admin_denied') }}" class="nav-tab active">Denied</a>
         </div>
 
-        {% for log in log_files %}
-        <div class="log-item">
-            <div class="log-details">
-                <h2>{{ log.name }}</h2>
-                <p>{{ log.description }}</p>
-            </div>
-            <a href="{{ url_for('download_metrics_xlsx', log_type=log.type) }}" class="download-btn">Download as Excel</a>
-        </div>
-        {% endfor %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <ul class="flash-messages">
+                {% for category, message in messages %}
+                    <li class="flash-{{ category }}">{{ message }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% endwith %}
 
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th style="width: 25%; text-align: center;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user.email }}</td>
+                        <td style="text-align: center;">
+                            <form action="{{ url_for('re_pend_user', email=user.email) }}" method="post" style="display: inline;">
+                                <button type="submit" class="action-btn">Move to Pending</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="2" style="text-align: center; color: #5f6368; padding: 30px;">No users have been denied.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </body>
 </html>
-

@@ -2,3 +2,5 @@
 /files_to_share
 config.py
 /__pycache__
+/user_data
+/static

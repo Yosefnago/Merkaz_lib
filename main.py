@@ -2,6 +2,7 @@ import os
 import csv
 import shutil
 import zipfile
+import re # Import the regular expression module
 from io import BytesIO
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, send_file, abort
@@ -32,7 +33,8 @@ share_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), SHARE_FOLDE
 # --- Logging Helper Function ---
 def log_event(filename, data):
     """Appends a new row to a specified CSV log file."""
-    with open(filename, mode='a', newline='') as f:
+    # Added encoding='utf-8' to support Hebrew and other characters
+    with open(filename, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(data)
 
@@ -205,10 +207,10 @@ def download_folder(folder_path):
         return abort(500, "Failed to create zip file")
 
     memory_file.seek(0)
-    return send_file(memory_file, download_name=f'{os.path.basename(folder_path)}.zip', as_attachment=True)
 
 # --- Suggestion Cooldown Tiers (in seconds) ---
 COOLDOWN_LEVELS = [60, 300, 600, 1800, 3600]
+#COOLDOWN_LEVELS = [10, 10, 10, 10, 10]
 
 @app.route("/suggest", methods=["POST"])
 def suggest():
@@ -270,8 +272,23 @@ def register():
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
+
+        # --- Password Validation Logic ---
+        if len(password) < 8:
+            error = "Password must be at least 8 characters long."
+        elif not re.search(r"[a-z]", password):
+            error = "Password must contain at least one lowercase letter."
+        elif not re.search(r"[A-Z]", password):
+            error = "Password must contain at least one uppercase letter."
+        elif not re.search(r"[0-9]", password):
+            error = "Password must contain at least one number."
+        elif not re.search(r"[!@#$%^&*()-_=+{};:,<.>]", password):
+            error = "Password must contain at least one special character."
         
-        # Simple check for existing user (optional, but good practice)
+        if error:
+            return render_template("register.html", error=error)
+        
+        # Check for existing user
         try:
             with open(AUTH_USER_DATABASE, mode='r') as f:
                 reader = csv.reader(f)
@@ -287,7 +304,7 @@ def register():
             writer = csv.writer(f)
             writer.writerow([email, password])
             
-        # Add immediately to the auth database for simple testing
+        # Add immediately to the auth database
         with open(AUTH_USER_DATABASE, mode='a', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([email, password])
@@ -296,6 +313,7 @@ def register():
         return redirect(url_for("login"))
         
     return render_template("register.html", error=error)
+
 
 @app.route("/logout")
 def logout():
@@ -321,7 +339,6 @@ def downloads(subpath=''):
     if not os.path.exists(current_path) or not current_path.startswith(share_dir):
         # Log this attempt if desired, but abort for security
         return abort(404, "Path not found or outside permitted boundaries.")
-        
     items = []
     try:
         for item_name in os.listdir(current_path):

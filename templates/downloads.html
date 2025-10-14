@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Downloads</title>
+    <title>TobeKK</title>
+    <!-- Google Fonts import for better Hebrew and Latin text rendering -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         /* --- General Body & Layout --- */
         body {
-            font-family: 'Roboto', 'Arial', sans-serif;
+            /* Updated font stack: Assistant for Hebrew, Roboto as primary for Latin */
+            font-family: 'Assistant', 'Roboto', 'Arial', sans-serif;
             margin: 0;
             background-color: #f0f2f5;
             color: #333;
@@ -121,6 +126,8 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             box-sizing: border-box; /* Important */
+            /* Ensure textarea also uses the new font stack */
+            font-family: 'Assistant', 'Roboto', 'Arial', sans-serif;
         }
         .suggestion-box button {
             margin-top: 10px;
@@ -236,3 +243,4 @@
     </script>
 </body>
 </html>
+

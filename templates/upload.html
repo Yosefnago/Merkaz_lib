@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TobeKK - Upload File</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Assistant', 'Roboto', 'Arial', sans-serif;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            padding-top: 40px;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px 40px;
+        }
+        h1 {
+            font-size: 24px;
+            font-weight: 500;
+            color: #202124;
+            margin-bottom: 15px;
+        }
+        p {
+            color: #5f6368;
+            margin-bottom: 25px;
+        }
+        form {
+            border-top: 1px solid #ddd;
+            padding-top: 25px;
+        }
+        input[type="file"] {
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #185abc;
+        }
+        a {
+            color: #1a73e8;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload a New File</h1>
+        
+        <p>Your file will be uploaded for admin review. It will be placed in the following directory upon approval: <strong>/{{ subpath or 'Home' }}</strong></p>
+
+        <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="subpath" value="{{ subpath }}">
+            <input type="file" name="file" required>
+            <br>
+            <button type="submit">Upload for Review</button>
+        </form>
+        
+        <a href="{{ url_for('downloads', subpath=subpath) }}" class="back-link">Back to Files</a>
+    </div>
+</body>
+</html>

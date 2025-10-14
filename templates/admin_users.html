@@ -109,9 +109,10 @@
 
         <div class="admin-nav">
             <a href="{{ url_for('admin_metrics') }}" class="nav-tab">Metrics</a>
-            <a href="{{ url_for('admin_users') }}" class="nav-tab active">Users</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-tab">Users</a>
             <a href="{{ url_for('admin_pending') }}" class="nav-tab">Pending</a>
             <a href="{{ url_for('admin_denied') }}" class="nav-tab">Denied</a>
+            <a href="{{ url_for('admin_uploads') }}" class="nav-tab">Uploads</a>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}

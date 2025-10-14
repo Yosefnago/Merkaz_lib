@@ -5,3 +5,5 @@ config.py
 /user_data
 /static
 /trash
+/uploads
+/data

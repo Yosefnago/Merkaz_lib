@@ -6,6 +6,7 @@ import re  # Import regex module
 from io import BytesIO
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, send_file, abort, flash
+# werkzeug.utils.secure_filename is no longer needed as we implement a custom check
 import config
 from user import User  # Import User class from user.py
 from mailer import mail, send_new_user_notification, send_approval_email, send_denial_email
@@ -21,6 +22,7 @@ except ImportError:
 # --- Configuration ---
 SHARE_FOLDER = config.SHARE_FOLDER
 TRASH_FOLDER = config.TRASH_FOLDER
+UPLOAD_FOLDER = config.UPLOAD_FOLDER
 
 NEW_USER_DATABASE = config.NEW_USER_DATABASE
 AUTH_USER_DATABASE = config.AUTH_USER_DATABASE
@@ -28,6 +30,8 @@ DENIED_USER_DATABASE = config.DENIED_USER_DATABASE
 SESSION_LOG_FILE = config.SESSION_LOG_FILE
 DOWNLOAD_LOG_FILE = config.DOWNLOAD_LOG_FILE
 SUGGESTION_LOG_FILE = config.SUGGESTION_LOG_FILE
+UPLOAD_LOG_FILE = config.UPLOAD_LOG_FILE
+DECLINED_UPLOAD_LOG_FILE = config.DECLINED_UPLOAD_LOG_FILE
 
 app = Flask(__name__, static_folder='assets')
 app.secret_key = config.SUPER_SECRET_KEY
@@ -44,6 +48,7 @@ mail.init_app(app)
 
 share_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), SHARE_FOLDER)
 trash_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), TRASH_FOLDER)
+upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), UPLOAD_FOLDER)
 
 
 # --- Logging Helper Function ---
@@ -111,6 +116,163 @@ def login():
                 error = "Invalid credentials. Please try again or register."
 
     return render_template("login.html", error=error, email=email_value)
+    
+@app.route("/upload", defaults={'subpath': ''}, methods=["GET", "POST"])
+@app.route("/upload/<path:subpath>", methods=["GET", "POST"])
+def upload_file(subpath):
+    if not session.get("logged_in"):
+        return redirect(url_for("login"))
+        
+    if request.method == "POST":
+        if 'file' not in request.files:
+            flash('No file part', 'error')
+            return redirect(request.url)
+        file = request.files['file']
+        if file.filename == '':
+            flash('No selected file', 'error')
+            return redirect(request.url)
+            
+        upload_subpath = request.form.get('subpath', '')
+
+        if file:
+            # Keep original filename but check for security risks
+            filename = file.filename
+            if '/' in filename or '\\' in filename:
+                flash("Invalid filename. Subdirectories are not allowed.", "error")
+                return redirect(request.url)
+
+            file.save(os.path.join(upload_dir, filename))
+            log_event(UPLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email"), filename, upload_subpath])
+            flash(f'File "{filename}" successfully uploaded and is pending review.', 'success')
+            return redirect(url_for('downloads', subpath=upload_subpath))
+
+    return render_template('upload.html', subpath=subpath)
+
+@app.route("/admin/uploads")
+def admin_uploads():
+    if not session.get("is_admin"):
+        abort(403)
+    uploads = []
+    processed_filenames = set()
+    
+    try:
+        with open(UPLOAD_LOG_FILE, mode='r', newline='', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            header = next(reader, None)
+            all_uploads = list(reader)
+
+        for row in reversed(all_uploads):
+            filename = row[2]
+            if filename not in processed_filenames:
+                uploads.append({"timestamp": row[0], "email": row[1], "filename": filename, "path": row[3]})
+                processed_filenames.add(filename)
+        
+        uploads.reverse()
+
+    except (FileNotFoundError, StopIteration):
+        pass
+        
+    existing_uploads = []
+    for upload in uploads:
+        if os.path.exists(os.path.join(upload_dir, upload['filename'])):
+            existing_uploads.append(upload)
+
+    return render_template("admin_uploads.html", uploads=existing_uploads)
+
+
+@app.route("/admin/move_upload/<path:filename>", methods=["POST"])
+def move_upload(filename):
+    if not session.get("is_admin"):
+        abort(403)
+    
+    target_path_str = request.form.get("target_path")
+    if not target_path_str:
+        flash("Target path cannot be empty.", "error")
+        return redirect(url_for("admin_uploads"))
+
+    source_file = os.path.join(upload_dir, filename)
+    
+    destination_path = os.path.join(share_dir, target_path_str)
+    
+    safe_destination = os.path.abspath(destination_path)
+    if not safe_destination.startswith(os.path.abspath(share_dir)):
+        flash("Invalid target path.", "error")
+        return redirect(url_for("admin_uploads"))
+
+    try:
+        os.makedirs(os.path.dirname(safe_destination), exist_ok=True)
+    except OSError as e:
+        flash(f"Error creating directory: {e}", "error")
+        return redirect(url_for("admin_uploads"))
+    
+    try:
+        shutil.move(source_file, safe_destination)
+        flash(f'File "{filename}" has been successfully moved to "{target_path_str}".', "success")
+    except FileNotFoundError:
+        flash(f'Error: Source file "{filename}" not found. It may have already been moved.', "error")
+    except Exception as e:
+        flash(f"An error occurred while moving the file: {e}", "error")
+
+    return redirect(url_for("admin_uploads"))
+
+@app.route("/admin/decline_upload/<path:filename>", methods=["POST"])
+def decline_upload(filename):
+    if not session.get("is_admin"):
+        abort(403)
+    
+    file_to_delete = os.path.join(upload_dir, filename)
+    
+    user_email = request.form.get("email", "unknown")
+    log_event(DECLINED_UPLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_email, filename])
+
+    try:
+        if os.path.exists(file_to_delete):
+            os.remove(file_to_delete)
+            flash(f'File "{filename}" has been declined and removed.', "success")
+        else:
+            flash(f'File "{filename}" was already removed.', "error")
+    except Exception as e:
+        flash(f"An error occurred while declining the file: {e}", "error")
+
+    return redirect(url_for("admin_uploads"))
+
+@app.route('/my_uploads')
+def my_uploads():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    user_email = session.get('email')
+    user_uploads = []
+    
+    declined_files = set()
+    try:
+        with open(DECLINED_UPLOAD_LOG_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['email'] == user_email:
+                    declined_files.add(row['filename'])
+    except FileNotFoundError:
+        pass
+
+    try:
+        with open(UPLOAD_LOG_FILE, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['email'] == user_email:
+                    if row['filename'] in declined_files:
+                        row['status'] = 'Declined'
+                    elif os.path.exists(os.path.join(upload_dir, row['filename'])):
+                        row['status'] = 'Pending Review'
+                    else:
+                        row['status'] = 'Approved & Moved'
+                    user_uploads.append(row)
+    except FileNotFoundError:
+        pass
+
+    user_uploads.reverse()
+
+    return render_template('my_uploads.html', uploads=user_uploads)
+
 
 # --- Admin Routes ---
 @app.route("/admin/metrics")
@@ -248,7 +410,6 @@ def delete_item(item_path):
         flash("File or folder not found.", "error")
         return redirect(request.referrer or url_for('downloads'))
 
-    # Create a unique name for the item in the trash
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     base_name = os.path.basename(item_path)
     dest_name = f"{timestamp}_{base_name}"
@@ -258,14 +419,12 @@ def delete_item(item_path):
         shutil.move(source_path, dest_path)
         flash(f"Successfully moved '{base_name}' to trash.", "success")
 
-        # Log the delete event
         log_event(DOWNLOAD_LOG_FILE,
                   [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email", "unknown"), "DELETE", item_path])
 
     except Exception as e:
         flash(f"Error deleting item: {e}", "error")
 
-    # Redirect back to the folder the user was viewing
     parent_folder = os.path.dirname(item_path)
     if parent_folder:
         return redirect(url_for('downloads', subpath=parent_folder))
@@ -368,27 +527,46 @@ def logout():
     return redirect(url_for("login"))
 
 @app.route('/')
+@app.route('/browse/', defaults={'subpath': ''})
 @app.route('/browse/<path:subpath>')
 def downloads(subpath=''):
     if not session.get("logged_in"): return redirect(url_for("login"))
-    current_path = os.path.join(share_dir, subpath)
-    if not current_path.startswith(share_dir): return abort(404)
+    
+    safe_subpath = os.path.normpath(subpath).replace('\\', '/')
+    if safe_subpath == '.':
+        safe_subpath = ''
+        
+    if '/.' in safe_subpath:
+        return abort(404)
+        
+    current_path = os.path.join(share_dir, safe_subpath)
+    
+    if not os.path.abspath(current_path).startswith(os.path.abspath(share_dir)):
+        return abort(403)
+
     items = []
-    if os.path.exists(current_path):
+    if os.path.exists(current_path) and os.path.isdir(current_path):
         for item_name in os.listdir(current_path):
             if item_name.startswith('.'): continue
-            item_path = os.path.join(current_path, item_name)
+            item_path_os = os.path.join(current_path, item_name)
+            item_path_url = os.path.join(safe_subpath, item_name).replace('\\', '/')
             items.append(
-                {"name": item_name, "is_folder": os.path.isdir(item_path), "path": os.path.join(subpath, item_name)})
+                {"name": item_name, "is_folder": os.path.isdir(item_path_os), "path": item_path_url})
+    
     items.sort(key=lambda x: (not x['is_folder'], x['name'].lower()))
-    return render_template("downloads.html", items=items, current_path=subpath,
+    
+    back_path = os.path.dirname(safe_subpath).replace('\\', '/') if safe_subpath else None
+
+    return render_template("downloads.html", 
+                           items=items, 
+                           current_path=safe_subpath, 
+                           back_path=back_path,
                            suggestion_error=session.pop('suggestion_error', None),
                            suggestion_success=session.pop('suggestion_success', None),
                            cooldown_level=session.get("cooldown_index", 0) + 1,
                            is_admin=session.get('is_admin', False))
 
 def create_file_with_header(filename, header):
-    # Ensure parent directory exists
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     if not os.path.exists(filename):
         with open(filename, mode='w', newline='', encoding='utf-8') as f:
@@ -397,7 +575,8 @@ def create_file_with_header(filename, header):
 
 if __name__ == "__main__":
     if not os.path.exists(share_dir): os.makedirs(share_dir)
-    if not os.path.exists(trash_dir): os.makedirs(trash_dir)  # Create trash dir
+    if not os.path.exists(trash_dir): os.makedirs(trash_dir)
+    if not os.path.exists(upload_dir): os.makedirs(upload_dir)
 
     create_file_with_header(AUTH_USER_DATABASE, ["email", "password", "role"])
     create_file_with_header(NEW_USER_DATABASE, ["email", "password", "role"])
@@ -406,8 +585,12 @@ if __name__ == "__main__":
     create_file_with_header(SESSION_LOG_FILE, ["timestamp", "email", "event"])
     create_file_with_header(DOWNLOAD_LOG_FILE, ["timestamp", "email", "type", "path"])
     create_file_with_header(SUGGESTION_LOG_FILE, ["timestamp", "email", "suggestion"])
+    create_file_with_header(UPLOAD_LOG_FILE, ["timestamp", "email", "filename", "path"])
+    create_file_with_header(DECLINED_UPLOAD_LOG_FILE, ["timestamp", "email", "filename"])
+
 
     from waitress import serve
 
     print("Starting server with Waitress...")
     serve(app, host="0.0.0.0", port=8000)
+

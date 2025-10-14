@@ -32,14 +32,27 @@ def downloads(subpath=''):
 
     items = []
     if os.path.exists(current_path) and os.path.isdir(current_path):
+        folders = []
+        files = []
         for item_name in os.listdir(current_path):
             if item_name.startswith('.'): continue
+            
             item_path_os = os.path.join(current_path, item_name)
             item_path_url = os.path.join(safe_subpath, item_name).replace('\\', '/')
-            items.append(
-                {"name": item_name, "is_folder": os.path.isdir(item_path_os), "path": item_path_url})
-    
-    items.sort(key=lambda x: (not x['is_folder'], x['name'].lower()))
+            
+            item_data = {"name": item_name, "path": item_path_url}
+            
+            if os.path.isdir(item_path_os):
+                item_data["is_folder"] = True
+                folders.append(item_data)
+            else:
+                item_data["is_folder"] = False
+                files.append(item_data)
+        
+        folders.sort(key=lambda x: x['name'].lower())
+        files.sort(key=lambda x: x['name'].lower())
+        
+        items = folders + files
     
     back_path = os.path.dirname(safe_subpath).replace('\\', '/') if safe_subpath else None
 

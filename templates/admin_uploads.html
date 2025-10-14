@@ -112,7 +112,7 @@
             <a href="{{ url_for('admin.admin_users') }}" class="nav-tab">Users</a>
             <a href="{{ url_for('admin.admin_pending') }}" class="nav-tab">Pending</a>
             <a href="{{ url_for('admin.admin_denied') }}" class="nav-tab">Denied</a>
-            <a href="{{ url_for('uploads.admin_uploads') }}" class="nav-tab">Uploads</a>
+            <a href="{{ url_for('uploads.admin_uploads') }}" class="nav-tab active">Uploads</a>
         </div>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -130,7 +130,7 @@
                 <tr>
                     <th>Timestamp</th>
                     <th>User Email</th>
-                    <th>Filename</th>
+                    <th>Uploaded Item</th>
                     <th style="width: 40%;">Approve Location</th>
                     <th style="width: 15%; text-align: center;">Actions</th>
                 </tr>
@@ -143,7 +143,7 @@
                     <td>{{ upload.filename }}</td>
                     <td>
                         <form action="{{ url_for('uploads.move_upload', filename=upload.filename) }}" method="post" id="form-move-{{ loop.index }}">
-                            <input type="text" name="target_path" value="{{ (upload.path + '/' if upload.path else '') + upload.filename }}">
+                            <input type="text" name="target_path" value="{{ upload.path }}">
                         </form>
                     </td>
                     <td style="text-align: center;">
@@ -151,7 +151,7 @@
                             <button type="submit" form="form-move-{{ loop.index }}" class="action-btn approve-btn">Approve</button>
                             <form action="{{ url_for('uploads.decline_upload', filename=upload.filename) }}" method="post" style="display: inline;">
                                 <input type="hidden" name="email" value="{{ upload.email }}">
-                                <button type="submit" class="action-btn decline-btn" onclick="return confirm('Are you sure you want to decline and delete this file?');">Decline</button>
+                                <button type="submit" class="action-btn decline-btn" onclick="return confirm('Are you sure you want to decline and delete this item?');">Decline</button>
                             </form>
                         </div>
                     </td>

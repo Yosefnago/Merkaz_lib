@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TobeKK - Upload File</title>
+    <title>TobeKK - Upload Content</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
@@ -30,13 +30,29 @@
             color: #202124;
             margin-bottom: 15px;
         }
+        h2 {
+            font-size: 18px;
+            font-weight: 500;
+            color: #202124;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
         p {
             color: #5f6368;
             margin-bottom: 25px;
         }
-        form {
+        .info {
+            font-size: 13px;
+            color: #5f6368;
+            background-color: #f1f3f4;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .upload-section {
             border-top: 1px solid #ddd;
             padding-top: 25px;
+            margin-bottom: 30px;
         }
         input[type="file"] {
             font-size: 14px;
@@ -66,24 +82,47 @@
         }
         .back-link {
             display: inline-block;
-            margin-top: 20px;
+            margin-top: 10px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+            width: 100%;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Upload a New File</h1>
+        <h1>Upload Content</h1>
         
-        <p>Your file will be uploaded for admin review. It will be placed in the following directory upon approval: <strong>/{{ subpath or 'Home' }}</strong></p>
+        <p>Your upload will be submitted for admin review. If approved, it will be placed in: <strong>/{{ subpath or 'Home' }}</strong></p>
 
-        <form method="post" enctype="multipart/form-data">
-            <input type="hidden" name="subpath" value="{{ subpath }}">
-            <input type="file" name="file" required>
-            <br>
-            <button type="submit">Upload for Review</button>
-        </form>
+        <div class="upload-section">
+            <h2>Upload Files</h2>
+            <div class="info">
+                You can select multiple files at once. Hold down the Ctrl (or Cmd on Mac) key while clicking to select more than one.
+            </div>
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="subpath" value="{{ subpath }}">
+                <input type="file" name="file" required multiple>
+                <br>
+                <button type="submit">Upload Files for Review</button>
+            </form>
+        </div>
+
+        <div class="upload-section">
+            <h2>Upload a Folder</h2>
+            <div class="info">
+                Select a folder to upload all of its contents, including sub-folders.
+            </div>
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="subpath" value="{{ subpath }}">
+                <input type="file" name="file" required webkitdirectory>
+                <br>
+                <button type="submit">Upload Folder for Review</button>
+            </form>
+        </div>
         
         <a href="{{ url_for('files.downloads', subpath=subpath) }}" class="back-link">Back to Files</a>
     </div>
 </body>
 </html>
+

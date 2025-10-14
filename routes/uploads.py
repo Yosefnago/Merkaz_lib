@@ -18,26 +18,48 @@ def upload_file(subpath):
     upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)).replace("routes",""), config.UPLOAD_FOLDER)
         
     if request.method == "POST":
-        if 'file' not in request.files:
-            flash('No file part', 'error')
-            return redirect(request.url)
-        file = request.files['file']
-        if file.filename == '':
-            flash('No selected file', 'error')
+        uploaded_files = request.files.getlist("file")
+        if not uploaded_files or (len(uploaded_files) == 1 and uploaded_files[0].filename == ''):
+            flash('No files selected.', 'error')
             return redirect(request.url)
             
         upload_subpath = request.form.get('subpath', '')
+        successful_uploads = []
+        
+        for file in uploaded_files:
+            if file:
+                # filename from the browser can include the relative path for folder uploads
+                filename = file.filename
+                
+                # Security check to prevent path traversal attacks
+                if '..' in filename.split('/') or '..' in filename.split('\\') or os.path.isabs(filename):
+                    flash(f"Invalid path in filename: '{filename}' was skipped.", "error")
+                    continue
+                
+                save_path = os.path.join(upload_dir, filename)
 
-        if file:
-            filename = file.filename
-            if '/' in filename or '\\' in filename:
-                flash("Invalid filename. Subdirectories are not allowed.", "error")
-                return redirect(request.url)
+                # Final security check to ensure the path doesn't escape the upload directory
+                if not os.path.abspath(save_path).startswith(os.path.abspath(upload_dir)):
+                    flash(f"Invalid save path for file: '{filename}' was skipped.", "error")
+                    continue
 
-            file.save(os.path.join(upload_dir, filename))
-            log_event(config.UPLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email"), filename, upload_subpath])
-            flash(f'File "{filename}" successfully uploaded and is pending review.', 'success')
-            return redirect(url_for('files.downloads', subpath=upload_subpath))
+                try:
+                    # Create parent directories if they don't exist
+                    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                    file.save(save_path)
+                    
+                    # The suggested path for the file after admin approval
+                    final_path_suggestion = os.path.join(upload_subpath, filename).replace('\\', '/')
+                    
+                    log_event(config.UPLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email"), filename, final_path_suggestion])
+                    successful_uploads.append(filename)
+                except Exception as e:
+                    flash(f"Could not upload '{filename}'. Error: {e}", "error")
+
+        if successful_uploads:
+            flash(f'Successfully uploaded {len(successful_uploads)} file(s). Files are pending review.', 'success')
+        
+        return redirect(url_for('files.downloads', subpath=upload_subpath))
 
     return render_template('upload.html', subpath=subpath)
 
@@ -50,13 +72,13 @@ def my_uploads():
     user_email = session.get('email')
     user_uploads = []
     
-    declined_files = set()
+    declined_items = set()
     try:
         with open(config.DECLINED_UPLOAD_LOG_FILE, 'r', newline='', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if row['email'] == user_email:
-                    declined_files.add(row['filename'])
+                    declined_items.add(row['filename'])
     except FileNotFoundError:
         pass
 
@@ -65,9 +87,12 @@ def my_uploads():
             reader = csv.DictReader(f)
             for row in reader:
                 if row['email'] == user_email:
-                    if row['filename'] in declined_files:
+                    full_relative_path = row['filename']
+                    top_level_item = full_relative_path.split('/')[0].split('\\')[0]
+
+                    if top_level_item in declined_items:
                         row['status'] = 'Declined'
-                    elif os.path.exists(os.path.join(upload_dir, row['filename'])):
+                    elif os.path.exists(os.path.join(upload_dir, full_relative_path)):
                         row['status'] = 'Pending Review'
                     else:
                         row['status'] = 'Approved & Moved'
@@ -83,28 +108,36 @@ def admin_uploads():
     if not session.get("is_admin"):
         abort(403)
         
-    upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)).replace("routes",""), config.UPLOAD_FOLDER)
-    uploads = []
-    processed_filenames = set()
+    upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)).replace("routes", ""), config.UPLOAD_FOLDER)
+    grouped_uploads = {}
     
     try:
         with open(config.UPLOAD_LOG_FILE, mode='r', newline='', encoding='utf-8') as f:
             reader = csv.reader(f)
             header = next(reader, None)
-            all_uploads = list(reader)
+            all_uploads_logged = list(reader)
 
-        for row in reversed(all_uploads):
-            filename = row[2]
-            if filename not in processed_filenames:
-                uploads.append({"timestamp": row[0], "email": row[1], "filename": filename, "path": row[3]})
-                processed_filenames.add(filename)
-        
-        uploads.reverse()
+        for row in reversed(all_uploads_logged):
+            timestamp, email, relative_path, suggested_full_path = row[0], row[1], row[2], row[3]
+            top_level_item = relative_path.split('/')[0].split('\\')[0]
+
+            if top_level_item not in grouped_uploads:
+                if os.path.exists(os.path.join(upload_dir, top_level_item)):
+                    is_part_of_dir_upload = '/' in relative_path or '\\' in relative_path
+                    final_approval_path = os.path.dirname(suggested_full_path) if is_part_of_dir_upload else suggested_full_path
+                    
+                    grouped_uploads[top_level_item] = {
+                        "timestamp": timestamp, 
+                        "email": email, 
+                        "filename": top_level_item,
+                        "path": final_approval_path
+                    }
     except (FileNotFoundError, StopIteration):
         pass
         
-    existing_uploads = [up for up in uploads if os.path.exists(os.path.join(upload_dir, up['filename']))]
-    return render_template("admin_uploads.html", uploads=existing_uploads)
+    final_uploads_list = sorted(list(grouped_uploads.values()), key=lambda x: x['timestamp'])
+    return render_template("admin_uploads.html", uploads=final_uploads_list)
+
 
 @uploads_bp.route("/admin/move_upload/<path:filename>", methods=["POST"])
 def move_upload(filename):
@@ -119,7 +152,7 @@ def move_upload(filename):
         flash("Target path cannot be empty.", "error")
         return redirect(url_for("uploads.admin_uploads"))
 
-    source_file = os.path.join(upload_dir, filename)
+    source_item = os.path.join(upload_dir, filename)
     destination_path = os.path.join(share_dir, target_path_str)
     
     safe_destination = os.path.abspath(destination_path)
@@ -129,12 +162,12 @@ def move_upload(filename):
 
     try:
         os.makedirs(os.path.dirname(safe_destination), exist_ok=True)
-        shutil.move(source_file, safe_destination)
-        flash(f'File "{filename}" has been successfully moved to "{target_path_str}".', "success")
+        shutil.move(source_item, safe_destination)
+        flash(f'Item "{filename}" has been successfully moved to "{target_path_str}".', "success")
     except FileNotFoundError:
-        flash(f'Error: Source file "{filename}" not found.', "error")
+        flash(f'Error: Source item "{filename}" not found.', "error")
     except Exception as e:
-        flash(f"An error occurred while moving the file: {e}", "error")
+        flash(f"An error occurred while moving the item: {e}", "error")
 
     return redirect(url_for("uploads.admin_uploads"))
 
@@ -144,18 +177,22 @@ def decline_upload(filename):
         abort(403)
         
     upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)).replace("routes",""), config.UPLOAD_FOLDER)
-    file_to_delete = os.path.join(upload_dir, filename)
+    item_to_delete = os.path.join(upload_dir, filename)
     user_email = request.form.get("email", "unknown")
     
     log_event(config.DECLINED_UPLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), user_email, filename])
 
     try:
-        if os.path.exists(file_to_delete):
-            os.remove(file_to_delete)
-            flash(f'File "{filename}" has been declined and removed.', "success")
+        if os.path.exists(item_to_delete):
+            if os.path.isdir(item_to_delete):
+                shutil.rmtree(item_to_delete)
+            else:
+                os.remove(item_to_delete)
+            flash(f'Item "{filename}" has been declined and removed.', "success")
         else:
-            flash(f'File "{filename}" was already removed.', "error")
+            flash(f'Item "{filename}" was already removed.', "error")
     except Exception as e:
-        flash(f"An error occurred while declining the file: {e}", "error")
+        flash(f"An error occurred while declining the item: {e}", "error")
 
     return redirect(url_for("uploads.admin_uploads"))
+

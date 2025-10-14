@@ -8,3 +8,4 @@ config.py
 /uploads
 /logs
 /data
+/routes/__pycache__

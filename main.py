@@ -2,12 +2,13 @@ import os
 import csv
 import shutil
 import zipfile
-import re # Import regex module
+import re  # Import regex module
 from io import BytesIO
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, send_file, abort, flash
 import config
-from user import User # Import User class from user.py
+from user import User  # Import User class from user.py
+from mailer import mail, send_new_user_notification, send_approval_email, send_denial_email
 
 # --- New Import for Excel Conversion ---
 # NOTE: The 'openpyxl' library is required for this functionality.
@@ -15,7 +16,7 @@ try:
     from openpyxl.workbook import Workbook
 except ImportError:
     print("Warning: openpyxl not found. Excel export will not work. Run 'pip install openpyxl'.")
-    class Workbook: pass # Mock to avoid runtime error
+    class Workbook: pass  # Mock to avoid runtime error
 
 # --- Configuration ---
 SHARE_FOLDER = config.SHARE_FOLDER
@@ -31,6 +32,16 @@ SUGGESTION_LOG_FILE = config.SUGGESTION_LOG_FILE
 app = Flask(__name__, static_folder='assets')
 app.secret_key = config.SUPER_SECRET_KEY
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=15)
+
+# --- Mail Configuration ---
+app.config['MAIL_SERVER'] = config.MAIL_SERVER
+app.config['MAIL_PORT'] = config.MAIL_PORT
+app.config['MAIL_USERNAME'] = config.MAIL_USERNAME
+app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
+app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
+app.config['MAIL_USE_SSL'] = config.MAIL_USE_SSL
+mail.init_app(app)
+
 share_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), SHARE_FOLDER)
 trash_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), TRASH_FOLDER)
 
@@ -83,21 +94,21 @@ def login():
         if user and user.check_password(password):
             session["logged_in"] = True
             session["email"] = user.email
-            session["is_admin"] = user.is_admin # Store admin status in session
+            session["is_admin"] = user.is_admin  # Store admin status in session
             login_success = True
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_event(SESSION_LOG_FILE, [timestamp, email, "LOGIN_SUCCESS" if login_success else "LOGIN_FAIL"])
-        
+
         if login_success:
             return redirect(url_for("downloads"))
         else:
             if User.find_pending_by_email(email):
-                 error = "Your account is pending administrator approval."
+                error = "Your account is pending administrator approval."
             elif User.find_denied_by_email(email):
-                 error = "Your registration has been denied."
+                error = "Your registration has been denied."
             else:
-                 error = "Invalid credentials. Please try again or register."
+                error = "Invalid credentials. Please try again or register."
 
     return render_template("login.html", error=error, email=email_value)
 
@@ -107,7 +118,8 @@ def admin_metrics():
     if not session.get("is_admin"): abort(403)
     log_files = [
         {"type": "session", "name": "Session Log (Login/Logout)", "description": "Track user login and failure events."},
-        {"type": "download", "name": "Download Log (File/Folder/Delete)", "description": "Track all file, folder, and delete events."},
+        {"type": "download", "name": "Download Log (File/Folder/Delete)",
+         "description": "Track all file, folder, and delete events."},
         {"type": "suggestion", "name": "Suggestion Log (User Feedback)", "description": "Records all user suggestions."},
     ]
     return render_template("admin_metrics.html", log_files=log_files)
@@ -135,14 +147,15 @@ def approve_user(email):
     if not session.get("is_admin"): abort(403)
     pending_users = User.get_pending()
     user_to_approve = next((user for user in pending_users if user.email == email), None)
-    
+
     if user_to_approve:
         auth_users = User.get_all()
         auth_users.append(user_to_approve)
         User.save_all(auth_users)
-        
+
         remaining_pending = [user for user in pending_users if user.email != email]
         User.save_pending(remaining_pending)
+        send_approval_email(app, email)
         flash(f"User {email} has been approved.", "success")
     else:
         flash(f"Could not find pending user {email}.", "error")
@@ -153,19 +166,20 @@ def deny_user(email):
     if not session.get("is_admin"): abort(403)
     pending_users = User.get_pending()
     user_to_deny = next((user for user in pending_users if user.email == email), None)
-    
+
     if user_to_deny:
         denied_users = User.get_denied()
         denied_users.append(user_to_deny)
         User.save_denied(denied_users)
-        
+
         remaining_pending = [user for user in pending_users if user.email != email]
         User.save_pending(remaining_pending)
+        send_denial_email(app, email)
         flash(f"Registration for {email} has been denied.", "success")
     else:
         flash(f"Could not find pending user {email}.", "error")
     return redirect(url_for('admin_pending'))
-    
+
 @app.route("/admin/re_pend/<string:email>", methods=["POST"])
 def re_pend_user(email):
     if not session.get("is_admin"): abort(403)
@@ -176,7 +190,7 @@ def re_pend_user(email):
         pending_users = User.get_pending()
         pending_users.append(user_to_re_pend)
         User.save_pending(pending_users)
-        
+
         remaining_denied = [user for user in denied_users if user.email != email]
         User.save_denied(remaining_denied)
         flash(f"User {email} has been moved back to pending.", "success")
@@ -208,14 +222,17 @@ def toggle_role(email):
 @app.route("/metrics/download/<log_type>")
 def download_metrics_xlsx(log_type):
     if not session.get("is_admin"): abort(403)
-    log_map = {"session": (SESSION_LOG_FILE, "Session_Log"), "download": (DOWNLOAD_LOG_FILE, "Download_Log"), "suggestion": (SUGGESTION_LOG_FILE, "Suggestion_Log")}
+    log_map = {"session": (SESSION_LOG_FILE, "Session_Log"), "download": (DOWNLOAD_LOG_FILE, "Download_Log"),
+               "suggestion": (SUGGESTION_LOG_FILE, "Suggestion_Log")}
     if log_type not in log_map: return abort(404)
     csv_filepath, file_prefix = log_map[log_type]
     try:
         xlsx_data = csv_to_xlsx_in_memory(csv_filepath)
         download_name = f"{file_prefix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        return send_file(xlsx_data, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', download_name=download_name, as_attachment=True)
-    except FileNotFoundError: return abort(404)
+        return send_file(xlsx_data, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                         download_name=download_name, as_attachment=True)
+    except FileNotFoundError:
+        return abort(404)
     except Exception as e:
         print(f"Error during XLSX conversion: {e}")
         return abort(500)
@@ -224,9 +241,9 @@ def download_metrics_xlsx(log_type):
 @app.route("/delete/<path:item_path>", methods=["POST"])
 def delete_item(item_path):
     if not session.get("is_admin"): abort(403)
-    
+
     source_path = os.path.join(share_dir, item_path)
-    
+
     if not os.path.exists(source_path) or not source_path.startswith(share_dir):
         flash("File or folder not found.", "error")
         return redirect(request.referrer or url_for('downloads'))
@@ -240,9 +257,10 @@ def delete_item(item_path):
     try:
         shutil.move(source_path, dest_path)
         flash(f"Successfully moved '{base_name}' to trash.", "success")
-        
+
         # Log the delete event
-        log_event(DOWNLOAD_LOG_FILE, [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email", "unknown"), "DELETE", item_path])
+        log_event(DOWNLOAD_LOG_FILE,
+                  [datetime.now().strftime("%Y-%m-%d %H:%M:%S"), session.get("email", "unknown"), "DELETE", item_path])
 
     except Exception as e:
         flash(f"Error deleting item: {e}", "error")
@@ -269,7 +287,8 @@ def download_folder(folder_path):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_event(DOWNLOAD_LOG_FILE, [timestamp, session.get("email", "unknown"), "FOLDER", folder_path])
     absolute_folder_path = os.path.join(share_dir, folder_path)
-    if not os.path.isdir(absolute_folder_path) or not absolute_folder_path.startswith(share_dir): return abort(404)
+    if not os.path.isdir(absolute_folder_path) or not absolute_folder_path.startswith(
+            share_dir): return abort(404)
     memory_file = BytesIO()
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         for root, _, files in os.walk(absolute_folder_path):
@@ -321,17 +340,24 @@ def register():
         if email_exists(email):
             error = "This email is already registered, pending approval, or has been denied."
             return render_template("register.html", error=error, email=email_value)
-        if len(password) < 8: error = "Password must be at least 8 characters long."
-        elif not re.search("[a-z]", password): error = "Password must contain a lowercase letter."
-        elif not re.search("[A-Z]", password): error = "Password must contain an uppercase letter."
-        elif not re.search("[0-9]", password): error = "Password must contain a number."
-        elif not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", password): error = "Password must contain a special character."
+        if len(password) < 8:
+            error = "Password must be at least 8 characters long."
+        elif not re.search("[a-z]", password):
+            error = "Password must contain a lowercase letter."
+        elif not re.search("[A-Z]", password):
+            error = "Password must contain an uppercase letter."
+        elif not re.search("[0-9]", password):
+            error = "Password must contain a number."
+        elif not re.search(r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?]", password):
+            error = "Password must contain a special character."
         if error: return render_template("register.html", error=error, email=email_value)
-        
+
         with open(NEW_USER_DATABASE, mode='a', newline='', encoding='utf-8') as f:
             csv.writer(f).writerow([email, password, 'user'])
-            
-        session['login_message'] = "Registration successful! Your account is now pending administrator approval."
+        
+        send_new_user_notification(app, email)
+        session[
+            'login_message'] = "Registration successful! Your account is now pending administrator approval."
         return redirect(url_for("login"))
     return render_template("register.html", error=error, email=email_value)
 
@@ -352,7 +378,8 @@ def downloads(subpath=''):
         for item_name in os.listdir(current_path):
             if item_name.startswith('.'): continue
             item_path = os.path.join(current_path, item_name)
-            items.append({"name": item_name, "is_folder": os.path.isdir(item_path), "path": os.path.join(subpath, item_name)})
+            items.append(
+                {"name": item_name, "is_folder": os.path.isdir(item_path), "path": os.path.join(subpath, item_name)})
     items.sort(key=lambda x: (not x['is_folder'], x['name'].lower()))
     return render_template("downloads.html", items=items, current_path=subpath,
                            suggestion_error=session.pop('suggestion_error', None),
@@ -370,17 +397,17 @@ def create_file_with_header(filename, header):
 
 if __name__ == "__main__":
     if not os.path.exists(share_dir): os.makedirs(share_dir)
-    if not os.path.exists(trash_dir): os.makedirs(trash_dir) # Create trash dir
-    
+    if not os.path.exists(trash_dir): os.makedirs(trash_dir)  # Create trash dir
+
     create_file_with_header(AUTH_USER_DATABASE, ["email", "password", "role"])
     create_file_with_header(NEW_USER_DATABASE, ["email", "password", "role"])
     create_file_with_header(DENIED_USER_DATABASE, ["email", "password", "role"])
-    
+
     create_file_with_header(SESSION_LOG_FILE, ["timestamp", "email", "event"])
     create_file_with_header(DOWNLOAD_LOG_FILE, ["timestamp", "email", "type", "path"])
     create_file_with_header(SUGGESTION_LOG_FILE, ["timestamp", "email", "suggestion"])
 
     from waitress import serve
+
     print("Starting server with Waitress...")
     serve(app, host="0.0.0.0", port=8000)
-

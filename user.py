@@ -30,7 +30,12 @@ class User:
     def save_all(users):
         """Rewrites the entire auth user database."""
         User._save_users_to_file(config.AUTH_USER_DATABASE, users)
-        
+
+    @staticmethod
+    def get_admin_emails():
+        """Returns a list of all admin email addresses."""
+        return [user.email for user in User.get_all() if user.is_admin]
+
     # --- Methods for Pending Users (new_users.csv) ---
     @staticmethod
     def find_pending_by_email(email):
@@ -87,4 +92,3 @@ class User:
             writer.writerow(["email", "password", "role"]) # Write header
             for user in users:
                 writer.writerow([user.email, user.password, user.role])
-

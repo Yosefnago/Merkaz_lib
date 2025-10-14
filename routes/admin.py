@@ -44,6 +44,7 @@ def approve_user(email):
 
     if user_to_approve:
         auth_users = User.get_all()
+        user_to_approve.status = 'active'
         auth_users.append(user_to_approve)
         User.save_all(auth_users)
 
@@ -108,6 +109,26 @@ def toggle_role(email):
     if user_found:
         User.save_all(users)
         flash(f"Successfully updated role for {email}.", "success")
+    else:
+        flash(f"Could not find user {email}.", "error")
+    return redirect(url_for('admin.admin_users'))
+
+@admin_bp.route("/toggle_status/<string:email>", methods=["POST"])
+def toggle_status(email):
+    if not session.get("is_admin"): abort(403)
+    if email == session.get('email'):
+        flash("You cannot change your own status.", "error")
+        return redirect(url_for('admin.admin_users'))
+    users = User.get_all()
+    user_found = False
+    for user in users:
+        if user.email == email:
+            user.status = 'inactive' if user.is_active else 'active'
+            user_found = True
+            break
+    if user_found:
+        User.save_all(users)
+        flash(f"Successfully updated status for {email}.", "success")
     else:
         flash(f"Could not find user {email}.", "error")
     return redirect(url_for('admin.admin_users'))

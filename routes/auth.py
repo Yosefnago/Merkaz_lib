@@ -32,23 +32,28 @@ def login():
         login_success = False
 
         if user and user.check_password(password):
-            session["logged_in"] = True
-            session["email"] = user.email
-            session["is_admin"] = user.is_admin
-            login_success = True
+            if user.is_active:
+                session["logged_in"] = True
+                session["email"] = user.email
+                session["is_admin"] = user.is_admin
+                login_success = True
+            else:
+                error = "Your account is inactive. Please contact an administrator."
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_event(config.SESSION_LOG_FILE, [timestamp, email, "LOGIN_SUCCESS" if login_success else "LOGIN_FAIL"])
-
+        
         if login_success:
+            log_event(config.SESSION_LOG_FILE, [timestamp, email, "LOGIN_SUCCESS"])
             return redirect(url_for("files.downloads"))
         else:
-            if User.find_pending_by_email(email):
-                error = "Your account is pending administrator approval."
-            elif User.find_denied_by_email(email):
-                error = "Your registration has been denied."
-            else:
-                error = "Invalid credentials. Please try again or register."
+            log_event(config.SESSION_LOG_FILE, [timestamp, email, "LOGIN_FAIL"])
+            if not error:
+                if User.find_pending_by_email(email):
+                    error = "Your account is pending administrator approval."
+                elif User.find_denied_by_email(email):
+                    error = "Your registration has been denied."
+                else:
+                    error = "Invalid credentials. Please try again or register."
 
     return render_template("login.html", error=error, email=email_value)
 

@@ -6,6 +6,5 @@ config.py
 /static
 /trash
 /uploads
-/data
-/data
 /logs
+/data

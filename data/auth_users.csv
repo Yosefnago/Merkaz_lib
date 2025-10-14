@@ -1,3 +1,3 @@
-email,password,role
-amirlabay@gmail.com,asdasd,admin
-amirlabay+new_user@gmail.com,asdASD123!@3,user
+email,password,role,status
+amirlabay@gmail.com,asdasd,admin,active
+amirlabay+new_user@gmail.com,asdASD123!@3,user,active

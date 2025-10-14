@@ -3,14 +3,19 @@ import config
 
 # --- User Class ---
 class User:
-    def __init__(self, email, password, role='user'):
+    def __init__(self, email, password, role='user', status='active'):
         self.email = email
         self.password = password
         self.role = role
+        self.status = status
 
     @property
     def is_admin(self):
         return self.role == 'admin'
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
 
     def check_password(self, password_to_check):
         return self.password == password_to_check
@@ -76,10 +81,11 @@ class User:
         try:
             with open(filepath, mode='r', newline='', encoding='utf-8') as f:
                 reader = csv.reader(f)
-                next(reader, None) # Skip header
+                header = next(reader, None) # Skip header
                 for row in reader:
                     if row and len(row) >= 3:
-                        users.append(User(email=row[0], password=row[1], role=row[2]))
+                        status = row[3] if len(row) > 3 else 'active'
+                        users.append(User(email=row[0], password=row[1], role=row[2], status=status))
         except FileNotFoundError:
             return []
         return users
@@ -89,6 +95,6 @@ class User:
         """Helper to write a list of users to a given CSV file."""
         with open(filepath, mode='w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
-            writer.writerow(["email", "password", "role"]) # Write header
+            writer.writerow(["email", "password", "role", "status"]) # Write header
             for user in users:
-                writer.writerow([user.email, user.password, user.role])
+                writer.writerow([user.email, user.password, user.role, user.status])

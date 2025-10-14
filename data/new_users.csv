@@ -1,1 +1,2 @@
-email,password,role
+email,password,role,status
+amirlabay+new_user@gmail.com,asdASD123!@3,user,active

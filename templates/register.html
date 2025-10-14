@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TobeKK - Register</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/uicons-bold-rounded.css') }}">
     <style>
         body {
             font-family: 'Roboto', 'Arial', sans-serif;
@@ -13,9 +14,8 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            padding: 20px 0;
         }
-        .login-container {
+        .register-container {
             background-color: white;
             padding: 40px;
             border-radius: 8px;
@@ -60,15 +60,11 @@
             right: 12px;
             cursor: pointer;
             color: #5f6368;
-            user-select: none; /* Prevents text selection */
+            user-select: none;
             display: flex;
             align-items: center;
             height: 100%;
-        }
-        /* Updated to target the img tag for styling */
-        .toggle-password img {
-            width: 20px;
-            height: 20px;
+            font-size: 20px;
         }
         button {
             background-color: #1a73e8;
@@ -110,52 +106,48 @@
             font-size: 13px;
             color: #5f6368;
             text-align: left;
+            margin-top: -10px;
             margin-bottom: 15px;
-            padding-left: 15px;
+            padding-left: 10px;
         }
         .password-requirements ul {
-            margin: 5px 0;
-            padding-left: 15px;
+            list-style-type: disc;
+            padding-left: 20px;
+            margin: 5px 0 0;
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h1>Create Account</h1>
+    <div class="register-container">
+        <h1>Create your Account</h1>
         
         {% if error %}
             <p class="error">{{ error }}</p>
         {% endif %}
         
         <form method="post">
-            <input type="email" name="email" placeholder="Email" required>
-            
+            <input type="email" name="email" placeholder="Email" value="{{ email or '' }}" required>
             <div class="password-wrapper">
                 <input type="password" name="password" id="password" placeholder="Password" required>
                 <span class="toggle-password" onclick="togglePasswordVisibility()">
-                    <!-- Replaced inline SVGs with img tags pointing to files -->
-                    <!-- This assumes your icons are in a folder structure like: static/icons/ -->
-                    <img id="eye-open" src="{{ url_for('static', filename='icons/fi-br-eye-crossed.svg') }}" alt="Show password">
-                    <img id="eye-closed" src="{{ url_for('static', filename='icons/fi-br-eye.svg') }}" alt="Hide password" style="display: none;">
+                    <i id="eye-open" class="fi fi-br-eye"></i>
+                    <i id="eye-closed" class="fi fi-br-eye-crossed" style="display: none;"></i>
                 </span>
             </div>
             
             <div class="password-requirements">
-                Password must contain:
                 <ul>
                     <li>At least 8 characters</li>
-                    <li>An uppercase letter (A-Z)</li>
-                    <li>A lowercase letter (a-z)</li>
-                    <li>A number (0-9)</li>
-                    <li>A special character (e.g., !@#$%)</li>
+                    <li>Uppercase & lowercase letters</li>
+                    <li>At least one number</li>
+                    <li>At least one special character</li>
                 </ul>
             </div>
-            
-            
+
             <button type="submit">Register</button>
         </form>
         
-        <p>Already have an account? <a href="{{ url_for('login') }}">Sign In</a></p>
+        <p>Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
     </div>
 
     <script>

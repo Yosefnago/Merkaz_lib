@@ -2,15 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TobeKK</title>
-    <!-- Google Fonts import for better Hebrew and Latin text rendering -->
+    <title>TobeKK - Files</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;500&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        /* --- General Body & Layout --- */
         body {
-            /* Updated font stack: Assistant for Hebrew, Roboto as primary for Latin */
             font-family: 'Assistant', 'Roboto', 'Arial', sans-serif;
             margin: 0;
             background-color: #f0f2f5;
@@ -27,8 +24,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             padding: 20px 40px;
         }
-        
-        /* --- Header & Navigation --- */
         .header {
             display: flex;
             justify-content: space-between;
@@ -43,136 +38,81 @@
             text-decoration: none;
             color: #202124;
         }
-        .header a.logout-btn {
-            background-color: #e8eaed;
-            color: #3c4043;
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-btn {
             padding: 8px 16px;
             border-radius: 4px;
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
+            transition: background-color 0.2s;
         }
-        .header a.logout-btn:hover {
+        .logout-btn {
+            background-color: #e8eaed;
+            color: #3c4043;
+        }
+        .logout-btn:hover {
             background-color: #d2d5d9;
         }
-
-        /* --- Path & Breadcrumbs --- */
+        .admin-btn {
+            background-color: #1a73e8;
+            color: white;
+        }
+        .admin-btn:hover {
+            background-color: #185abc;
+        }
         .path-bar { color: #5f6368; font-size: 14px; margin-bottom: 20px; }
         .path-bar a { color: #1a73e8; text-decoration: none; }
         .path-bar a:hover { text-decoration: underline; }
-
-        /* --- File Table --- */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-        th, td {
-            padding: 12px 8px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        th {
-            color: #5f6368;
-            font-weight: 500;
-        }
-        tr.clickable-row:hover {
-            background-color: #f1f3f4;
-            cursor: pointer;
-        }
-        .item-name {
-            display: flex;
-            align-items: center;
-        }
-        .item-name svg {
-            margin-right: 12px;
-            width: 20px;
-            height: 20px;
-            fill: #5f6368;
-        }
-
-        /* --- Action Button --- */
-        .download-btn {
-            padding: 6px 12px;
-            background-color: transparent;
-            color: #1a73e8;
-            text-decoration: none;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            font-size: 13px;
-            font-weight: 500;
-            display: inline-block;
-        }
-        .download-btn:hover {
-            background-color: #f0f6ff;
-            border-color: #cce0ff;
-        }
-
-        /* --- Suggestion Box --- */
-        .suggestion-box {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-        }
-        .suggestion-box h2 {
-            font-size: 18px;
-            font-weight: 500;
-            margin-bottom: 15px;
-        }
-        .suggestion-box textarea {
-            width: 100%;
-            padding: 10px;
-            font-size: 14px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box; /* Important */
-            /* Ensure textarea also uses the new font stack */
-            font-family: 'Assistant', 'Roboto', 'Arial', sans-serif;
-        }
-        .suggestion-box button {
-            margin-top: 10px;
-            padding: 10px 20px;
-            background-color: #1a73e8;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: 500;
-            cursor: pointer;
-        }
-        .suggestion-box button:hover {
-            background-color: #185abc;
-        }
-        p.success-msg { color: #1e8e3e; }
-        p.error-msg { color: #d93025; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+        th { color: #5f6368; font-weight: 500; }
+        tr.clickable-row:hover { background-color: #f1f3f4; cursor: pointer; }
+        .item-name { display: flex; align-items: center; }
+        .item-name svg { margin-right: 12px; width: 20px; height: 20px; fill: #5f6368; }
+        .download-btn { padding: 6px 12px; background-color: transparent; color: #1a73e8; text-decoration: none; border-radius: 4px; border: 1px solid #ddd; font-size: 13px; font-weight: 500; display: inline-block; }
+        .download-btn:hover { background-color: #f0f6ff; border-color: #cce0ff; }
+        .suggestion-box { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; }
+        .suggestion-box h2 { font-size: 18px; font-weight: 500; margin-bottom: 15px; }
+        .suggestion-box textarea { width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical; }
+        .suggestion-box button { margin-top: 10px; padding: 10px 20px; background-color: #1a73e8; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer; }
+        .suggestion-box button:hover { background-color: #185abc; }
+        .success-msg, .error-msg { padding: 10px; border-radius: 4px; margin-bottom: 10px; }
+        .success-msg { color: #1e8e3e; background-color: #e6f4ea; }
+        .error-msg { color: #d93025; background-color: #fce8e6; }
     </style>
 </head>
 <body>
-
     <div class="container">
         <div class="header">
             <h1><a href="{{ url_for('downloads') }}">Public Files</a></h1>
-            <a href="/logout" class="logout-btn">Logout</a>
+            <div class="header-nav">
+                {% if is_admin %}
+                    <a href="{{ url_for('admin_metrics') }}" class="nav-btn admin-btn">Admin Dashboard</a>
+                {% endif %}
+                <a href="/logout" class="nav-btn logout-btn">Logout</a>
+            </div>
         </div>
-
         <div class="path-bar">
             <span>/{{ current_path }}</span>
             {% if current_path %}
-                <a href="{{ url_for('downloads', subpath=current_path.rsplit('/', 1)[0] if '/' in current_path else None) }}" style="margin-left: 15px;">⬆️ Go Up</a>
+                <a href="{{ url_for('downloads', subpath=current_path.rsplit('/', 1)[0] if '/' in current_path else None) }}" style="margin-left: 15px;">&#11014; Go Up</a>
             {% endif %}
         </div>
-        
         <table>
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th style="width: 120px;">Action</th>
+                    <th style="width: 120px; text-align: center;">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
-                    <tr class="clickable-row" 
-                        data-is-folder="{{ 'true' if item.is_folder else 'false' }}" 
-                        data-path="{{ item.path }}">
+                    <tr class="clickable-row" data-is-folder="{{ 'true' if item.is_folder else 'false' }}" data-path="{{ item.path }}">
                         <td>
                             <div class="item-name">
                                 {% if item.is_folder %}
@@ -184,7 +124,7 @@
                                 {% endif %}
                             </div>
                         </td>
-                        <td>
+                        <td style="text-align: center;">
                             {% if item.is_folder %}
                                 <a href="/download/folder/{{ item.path }}" class="download-btn">Download</a>
                             {% else %}
@@ -193,49 +133,35 @@
                         </td>
                     </tr>
                 {% else %}
-                    <tr>
-                        <td colspan="2" style="text-align: center; color: #5f6368; padding: 30px;">This folder is empty.</td>
-                    </tr>
+                    <tr><td colspan="2" style="text-align: center; color: #5f6368; padding: 30px;">This folder is empty.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
-
         <div class="suggestion-box">
             <h2>Have a Suggestion?</h2>
-            
-            {% if suggestion_success %}
-                <p class="success-msg">{{ suggestion_success }}</p>
-            {% endif %}
-            {% if suggestion_error %}
-                <p class="error-msg">{{ suggestion_error }}</p>
-            {% endif %}
-
+            {% if suggestion_success %}<p class="success-msg">{{ suggestion_success }}</p>{% endif %}
+            {% if suggestion_error %}<p class="error-msg">{{ suggestion_error }}</p>{% endif %}
             <form action="{{ url_for('suggest') }}" method="post">
-                <textarea name="suggestion" rows="4" placeholder="Type your suggestion here..." required></textarea>
-                <br>
+                <textarea name="suggestion" rows="4" placeholder="Type your suggestion here... (Cooldown: Level {{ cooldown_level }})" required></textarea><br>
                 <button type="submit">Submit Suggestion</button>
             </form>
         </div>
     </div>
-
     <script>
         document.querySelectorAll('.clickable-row').forEach(row => {
-            row.addEventListener('dblclick', function(event) {
-                let target = event.target;
-                // Traverse up the DOM to check if the click was inside the download button
-                while (target != null && !target.classList.contains('clickable-row')) {
-                    if (target.classList.contains('download-btn')) {
-                        return; // Do nothing if the download button or its child was clicked
-                    }
-                    target = target.parentElement;
-                }
-
+            row.addEventListener('click', function(event) {
+                if (event.target.closest('.download-btn')) return;
                 const isFolder = this.dataset.isFolder === 'true';
                 const path = this.dataset.path;
-
                 if (isFolder) {
                     window.location.href = `/browse/${path}`;
-                } else {
+                }
+            });
+            row.addEventListener('dblclick', function(event) {
+                if (event.target.closest('.download-btn')) return;
+                const isFolder = this.dataset.isFolder === 'true';
+                const path = this.dataset.path;
+                if (!isFolder) {
                     window.location.href = `/download/file/${path}`;
                 }
             });

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TobeKK - Login</title>
-    <!-- Link to the new icon stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/uicons-bold-rounded.css') }}">
     <style>
         body {
@@ -65,7 +64,7 @@
             display: flex;
             align-items: center;
             height: 100%;
-            font-size: 20px; /* Adjust icon size if needed */
+            font-size: 20px;
         }
         button {
             background-color: #1a73e8;
@@ -99,7 +98,6 @@
             font-size: 14px;
             padding: 10px;
             border-radius: 4px;
-            text-align: left;
         }
         .error {
             color: #d93025;
@@ -125,11 +123,10 @@
         {% endif %}
         
         <form method="post">
-            <input type="email" name="email" placeholder="Email" required>
+            <input type="email" name="email" placeholder="Email" value="{{ email or '' }}" required>
             <div class="password-wrapper">
                 <input type="password" name="password" id="password" placeholder="Password" required>
                 <span class="toggle-password" onclick="togglePasswordVisibility()">
-                    <!-- Updated to use the <i> tag with icon classes -->
                     <i id="eye-open" class="fi fi-br-eye"></i>
                     <i id="eye-closed" class="fi fi-br-eye-crossed" style="display: none;"></i>
                 </span>
@@ -159,4 +156,3 @@
     </script>
 </body>
 </html>
-

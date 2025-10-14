@@ -14,3 +14,12 @@ SUGGESTION_LOG_FILE = "logs/suggestion_log.csv"
 
 # --- Security ---
 SUPER_SECRET_KEY = "your_super_secret_key_here" # Change this to a random string
+
+# --- Mail Server ---
+MAIL_SERVER = 'smtp.gmail.com'
+MAIL_PORT = 465
+MAIL_USERNAME = 'your_email@gmail.com'
+MAIL_PASSWORD = 'app password from google'
+MAIL_USE_TLS = False
+MAIL_USE_SSL = True
+MAIL_DEFAULT_SENDER = 'your_email@gmail.com'

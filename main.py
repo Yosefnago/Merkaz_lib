@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import config
 from utils import create_file_with_header
 from mailer import mail
+from flask_cors import CORS
 
 # Import and register blueprints
 from routes.auth import auth_bp
@@ -58,6 +59,8 @@ if __name__ == "__main__":
     create_file_with_header(config.DECLINED_UPLOAD_LOG_FILE, ["timestamp", "email", "filename"])
 
     app = create_app()
+    CORS(app, resources={r"/*": {"origins": "http://localhost:4200"}}, supports_credentials=True)
+
 
     print("Starting server with Waitress...")
     serve(app, host="0.0.0.0", port=8000)

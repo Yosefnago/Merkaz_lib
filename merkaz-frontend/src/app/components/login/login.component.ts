@@ -7,10 +7,11 @@
  * Backend is expected to respond strictly in JSON format.
  */
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
+import {Router, RouterLink} from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import {CommonModule} from '@angular/common';
+import {AuthService} from '../../services/auth.service';
 
 @Component({
   selector: 'app-login',
@@ -20,24 +21,25 @@ import {CommonModule} from '@angular/common';
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
   ]
 })
 export class LoginComponent {
-  /** User email input */
+  /** User input fields */
   email = '';
-
-  /** User password input */
   password = '';
 
-  /** Message displayed on successful login */
-  message = '';
+  /** UI state */
+  showPassword = false;
+  isLoading = false;
 
-  /** Error message displayed on failed login */
+   /** Response messages */
+  message = '';
   error = '';
 
-  showPassword = false
 
-  constructor(private http: HttpClient, private router: Router) {}
+
+  constructor(private http: HttpClient, private router: Router, private authService: AuthService ) {}
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
@@ -49,31 +51,35 @@ export class LoginComponent {
    * Backend should respond with a JSON object (see API Contract above).
    */
   onSubmit() {
-    this.http.post('http://localhost:8000/login', {
-      email: this.email,
-      password: this.password
-    }).subscribe({
-      // Expected response example:
-        // {
-        //   "message": "Login successful",
-        //   "email": "user@example.com",
-        //   "role": "user",
-        //   "token": "jwt-123..."
-        // }
-      next: (res: any) => {
+    this.error = '';
+    this.message = '';
+    this.isLoading = true;
 
-        this.message = 'Login successful';
-        localStorage.setItem('token', res.token);
+    const payload = {
+      email: this.email.trim(),
+      password: this.password.trim()
+    };
 
-        // Redirect to dashboard
+    this.http.post('http://localhost:8000',payload).subscribe({
+      next: (res :any)=>{
+        this.isLoading = false;
+
+        this.authService.saveToken(res.token);
+
+        this.message = res.message || 'Login successful';
+
         this.router.navigate(['/dashboard']);
       },
-      error: () => {
+      error: (err) => {
+        this.isLoading = false;
 
-        // Expected error response example:
-        // { "error": "Invalid credentials" }
-        this.error = 'Invalid credentials';
+
+        this.error =
+          err.error?.error ||
+          err.error?.message ||
+          'Invalid credentials or server error';
       }
     });
+
   }
 }
